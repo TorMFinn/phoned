@@ -1,10 +1,11 @@
 #pragma once
 #include <memory>
+#include <string>
 
 namespace phoned {
      class audio {
      public:
-	  audio();
+         audio(const std::string &audio_path);
 	  ~audio();
 
 	  void start_dialtone();

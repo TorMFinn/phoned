@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 project(phone)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 #add_executable(phoned
 #  src/phoned.cc
 
@@ -15,13 +18,19 @@ add_executable(phoned
   src/phoned.cpp
   )
 
+add_executable(modem_test
+  src/modem_test.cpp
+  src/modem.cpp
+  )
+
 add_library(phoned-lib
   src/audio.cpp
-  src/handset.cpp
+  #src/handset.cpp
+  src/modem.cpp
   )
 
 target_link_libraries(phoned-lib
-  gpio
+  #gpio
   ${GST_LIBRARIES}
   )
 
@@ -36,6 +45,4 @@ target_include_directories(phoned-lib PUBLIC
 target_link_libraries(phoned
   phoned-lib
   pthread
-  
   )
-  
