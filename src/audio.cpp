@@ -54,20 +54,18 @@ struct audio::Data {
             std::cerr << "failed to create dialtone pipeline" << std::endl;
         }
 
-        /*
         e = nullptr;
-        rx_pipeline = gst_parse_launch("fdsrc name=fd do_timestamp=true ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! autoaudiosink", &e);
+        rx_pipeline = gst_parse_launch("fdsrc name=fd ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! autoaudiosink", &e);
 
         if (rx_pipeline) {
             GstElement *fdsrc = gst_bin_get_by_name(GST_BIN(rx_pipeline), "fd");
             g_object_set(fdsrc, "fd", audio_fd, nullptr);
 
-            gst_element_set_state(rx_pipeline, GST_STATE_PLAYING);
         } else {
             std::cerr << "failed to create rx_audio_pipeline" << std::endl;
         }
-        */
 
+        /*
         e = nullptr;
         tx_pipeline = gst_parse_launch("autoaudiosrc ! audio/x-raw,format=S16LE, audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! fdsink name=fd sync=true", &e);
         if (tx_pipeline) {
@@ -80,6 +78,7 @@ struct audio::Data {
         } else {
             std::cerr << "failed to create tx_audio_pipeline" << std::endl;
         }
+        */
     }
 
     void start_dialtone() {
@@ -123,4 +122,16 @@ void audio::pause_dialtone() {
 
 void audio::stop_dialtone() {
     m_data->stop_dialtone();
+}
+
+void audio::start_rx_line() {
+     if (m_data->rx_pipeline){
+	  gst_element_set_state(m_data->rx_pipeline, GST_STATE_PLAYING);
+     }
+}
+
+void audio::stop_rx_line() {
+     if (m_data->rx_pipeline){
+	  gst_element_set_state(m_data->rx_pipeline, GST_STATE_NULL);
+     }
 }

@@ -12,6 +12,9 @@ namespace phoned {
 	  void pause_dialtone();
 	  void stop_dialtone();
 
+	  void start_rx_line();
+	  void stop_rx_line();
+
      private:
 	  struct Data;
 	  std::unique_ptr<Data> m_data;

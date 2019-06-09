@@ -19,6 +19,7 @@ struct handset::Data {
      std::atomic<bool> quit;
      std::function<void (int state)> state_cb;
      bool old_state = false;
+     bool initial_read = true;
 
      ~Data() {
 	  quit = true;
@@ -53,6 +54,12 @@ struct handset::Data {
 	       if (state != old_state) {
 		    state_cb(state);
 	       }
+	       /*
+	       else if (initial_read) {
+		    state_cb(state);
+		    initial_read = false;
+	       }
+	       */
 	       old_state = state;
 	  }
      }

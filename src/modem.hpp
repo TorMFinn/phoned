@@ -18,6 +18,8 @@ namespace phoned {
 
         bool dial(const std::string &number);
 
+	 bool has_dialtone();
+
         /** 
          * Hangup the current call
          */

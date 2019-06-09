@@ -1,23 +1,17 @@
 #pragma once
-#include <string>
-#include <stdint.h>
-#include <functional>
-#include <libgpio.h>
+#include <memory>
+#include <boost/signals2.hpp>
 
-struct gpio_config {
-     std::string gpiodevice;
-     uint8_t pin_start_count;
-     uint8_t pin_count;
-};
+namespace phoned {
+     class dial {
+     public:
+	  dial();
+	  ~dial();
 
-class Dial {
-     Dial(const gpio_config &cfg);
-     ~Dial();
+	  boost::signals2::signal<void (const std::string&)> on_number;
 
-     void OnNumberReady(const std::function<void (const std::string&)> &callback);
-
-private:
-     std::function<void (const std::string&)> callback_;
-     gpio_handle_t gpio_handle_;
-     bool configure_gpio(const gpio_config &cfg);
-};
+     private:
+	  struct Data;
+	  std::unique_ptr<Data> m_data;
+     };
+}

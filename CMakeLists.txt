@@ -18,19 +18,15 @@ add_executable(phoned
   src/phoned.cpp
   )
 
-add_executable(modem_test
-  src/modem_test.cpp
-  src/modem.cpp
-  )
-
 add_library(phoned-lib
   src/audio.cpp
-  #src/handset.cpp
+  src/handset.cpp
   src/modem.cpp
+  src/dial.cpp
   )
 
 target_link_libraries(phoned-lib
-  #gpio
+  gpio
   ${GST_LIBRARIES}
   )
 

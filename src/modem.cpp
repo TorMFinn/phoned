@@ -43,10 +43,22 @@ struct modem::Data {
             return false;
         }
 
-        read_thd = std::thread(&Data::read_thd_function, this);
+        //read_thd = std::thread(&Data::read_thd_function, this);
 
         return true;
     }
+
+     void init_usb_audio() {
+	  std::string cmd = "AT+CPCMREG=1\r";
+	  ssize_t written = write(fd, cmd.data(), cmd.size());
+	  std::cout << "started usb audio" << std::endl;
+     }
+
+     void stop_usb_audio() {
+	  std::string cmd = "AT+CPCMREG=0\r";
+	  ssize_t written = write(fd, cmd.data(), cmd.size());
+	  std::cout << "stopped usb audio" << std::endl;
+     }
 
     /**
      * Execute a AT command and wait for OK
@@ -58,12 +70,16 @@ struct modem::Data {
         std::cout << "Writing: " << full_cmd << std::endl;
         write(fd, full_cmd.data(), full_cmd.size());
 
+	/*
         // Read and wait for OK
         ssize_t amount_read = read(fd, recv_buf, 1024);
         std::string recv_buf_str(recv_buf, amount_read);
 
         read_mutex.unlock();
-        return recv_buf_str.find("OK") != std::string::npos;
+	*/
+        read_mutex.unlock();
+        //return recv_buf_str.find("OK") != std::string::npos;
+	return true;
     }
 
     void read_thd_function() {
@@ -103,33 +119,41 @@ modem::~modem() {
 }
 
 bool modem::dial(const std::string &number) {
-    /*
-    if (m_data->call_in_progress) {
-        return false;
-    }
-    */
-
-    /*
-    m_data->call_in_progress = m_data->execute_command("ATD"+number+";");
-
-    if (m_data->call_in_progress) {
-        // Set up audio over USB
-        m_data->execute_command("AT+CPCMREG=1");
-    }
-    */
-    m_data->call_in_progress = m_data->execute_command("ATD"+number+";");
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    m_data->execute_command("AT+CPCMREG=1");
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    //m_data->execute_command("AT+CMUT=1");
-
-    return m_data->call_in_progress;
+     std::string cmd = "ATD"+number+";\r";
+     ssize_t written = write(m_data->fd, cmd.data(), cmd.size());
+     std::this_thread::sleep_for(std::chrono::seconds(1));
+     m_data->init_usb_audio();
+     std::this_thread::sleep_for(std::chrono::seconds(1));
+     return written > 0;
 }
 
 void modem::hangup() {
-    m_data->execute_command("AT+CHUP");
+     //m_data->execute_command("AT+CHUP");
+     std::string cmd = "AT+CHUP\r";
+     ssize_t written = write(m_data->fd, cmd.data(), cmd.size());
+     std::this_thread::sleep_for(std::chrono::seconds(1));
+     m_data->stop_usb_audio();
+     std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 bool modem::answer_call() {
     return m_data->execute_command("ATA");
 }
+
+bool modem::has_dialtone() {
+     std::lock_guard<std::mutex> lock(m_data->read_mutex);
+     std::string cmd = "AT+CPAS\r";
+     ssize_t written = write(m_data->fd, cmd.data(), cmd.size());
+     if (written > 0) {
+	  // Get reply
+	  char recv_buf[1024];
+	  ssize_t r = read(m_data->fd, recv_buf, 1024);
+	  if (r > 0) {
+	       std::string str_buf(recv_buf, r);
+	       return str_buf.find("+CPAS: 0") != std::string::npos;
+	  }
+     }
+
+     return false;
+}
+     
