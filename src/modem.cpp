@@ -33,7 +33,7 @@ struct modem::Data {
         }
 
         cfmakeraw(&config);
-        if (cfsetspeed(&config, B921600) < 0) {
+        if (cfsetspeed(&config, B230400) < 0) {
             std::cerr << "failed to set baudrate" << std::endl;
             return false;
         }
