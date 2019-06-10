@@ -2,6 +2,7 @@
 #include "modem.hpp"
 #include "handset.hpp"
 #include "dial.hpp"
+#include "ringer.hpp"
 #include <memory>
 #include <iostream>
 #include <thread>
@@ -26,8 +27,9 @@ void on_number(const std::string &number) {
      if (not handset_down) {
 	  std::cout << "dialing" << std::endl;
 	  audio->stop_dialtone();
-	  audio->start_rx_line();
+	  audio->start_tx_line();
 	  modem->dial(number);
+	  audio->start_rx_line();
      }
 }
 
@@ -36,8 +38,9 @@ void on_headset_changed(bool state) {
      if (state) {
 	  audio->stop_dialtone();
 	  std::cout << "handset down" << std::endl;
+	  audio->stop_rx_line();
+	  audio->stop_tx_line();
 	  modem->hangup();
-	  //audio->stop_rx_line();
      } else {
 	  if (modem->has_dialtone()) {
 	       audio->start_dialtone();
@@ -54,6 +57,15 @@ int main(int argc, char **argv) {
 
      phoned::handset handset;
      handset.state_changed.connect(on_headset_changed);
+     handset_down = handset.is_handset_down();
+     std::cout << "is handset down? " << std::boolalpha << handset_down
+	       << std::endl;
+
+     /*
+     phoned::ringer ringer;
+     std::this_thread::sleep_for(std::chrono::seconds(1));
+     ringer.start_ring();
+     */
 
      std::signal(SIGINT, sighandler);
      std::signal(SIGTERM, sighandler);
@@ -61,6 +73,8 @@ int main(int argc, char **argv) {
      while(not quit) {
 	  std::this_thread::sleep_for(std::chrono::seconds(1));
      }
+
+     //ringer.stop_ring();
 
      return 0;
 }

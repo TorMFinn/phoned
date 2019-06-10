@@ -15,6 +15,9 @@ namespace phoned {
 	  void start_rx_line();
 	  void stop_rx_line();
 
+	  void start_tx_line();
+	  void stop_tx_line();
+
      private:
 	  struct Data;
 	  std::unique_ptr<Data> m_data;

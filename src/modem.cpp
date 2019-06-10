@@ -33,7 +33,7 @@ struct modem::Data {
         }
 
         cfmakeraw(&config);
-        if (cfsetspeed(&config, B115200) < 0) {
+        if (cfsetspeed(&config, B921600) < 0) {
             std::cerr << "failed to set baudrate" << std::endl;
             return false;
         }
@@ -49,9 +49,27 @@ struct modem::Data {
     }
 
      void init_usb_audio() {
+	  /*
 	  std::string cmd = "AT+CPCMREG=1\r";
 	  ssize_t written = write(fd, cmd.data(), cmd.size());
+	  */
+	  execute_command("AT+CPCMREG=1");
+	  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	  execute_command("AT+CNSN=0x0");
+	  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	  execute_command("AT+CNSLIM=0x0");
+	  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	  execute_command("AT+CNSLIM=0x0");
+	  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	  execute_command("AT+CTXVOL=0x8000");
 	  std::cout << "started usb audio" << std::endl;
+	  /*
+	  std::this_thread::sleep_for(std::chrono::seconds(1));
+
+	  std::string cmd2 = "AT+VMUTE=1\r";
+	  write(fd, cmd2.data(), cmd2.size());
+	  std::cout << "started usb audio" << std::endl;
+	  */
      }
 
      void stop_usb_audio() {

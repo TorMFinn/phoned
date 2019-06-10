@@ -4,9 +4,6 @@ project(phone)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-#add_executable(phoned
-#  src/phoned.cc
-
 include_directories(/usr/local/include)
 link_directories(/usr/local/lib)
 
@@ -23,6 +20,7 @@ add_library(phoned-lib
   src/handset.cpp
   src/modem.cpp
   src/dial.cpp
+  src/ringer.cpp
   )
 
 target_link_libraries(phoned-lib

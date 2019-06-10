@@ -13,6 +13,8 @@ struct audio::Data {
     GstElement* dialtone_pipeline;
     GstElement* rx_pipeline;
     GstElement* tx_pipeline;
+     GstElement* tx_valve;
+     GstElement* rx_valve;
 
     int audio_fd;
 
@@ -30,8 +32,14 @@ struct audio::Data {
             return false;
         }
 
+	if(tcgetattr(audio_fd, &config) < 0) {
+	     std::cerr << "failed to get serial termios for audio"
+		       << std::endl;
+	     return false;
+	}
+
         cfmakeraw(&config);
-        if (cfsetspeed(&config, B115200) < 0) {
+        if (cfsetspeed(&config, B921600) < 0) {
             std::cerr << "failed to set baudrate" << std::endl;
             return false;
         }
@@ -55,30 +63,28 @@ struct audio::Data {
         }
 
         e = nullptr;
-        rx_pipeline = gst_parse_launch("fdsrc name=fd ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! autoaudiosink", &e);
+        rx_pipeline = gst_parse_launch("fdsrc name=fd ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! valve drop=true name=valve ! autoaudiosink", &e);
 
         if (rx_pipeline) {
             GstElement *fdsrc = gst_bin_get_by_name(GST_BIN(rx_pipeline), "fd");
+	    rx_valve = gst_bin_get_by_name(GST_BIN(rx_pipeline), "valve");
             g_object_set(fdsrc, "fd", audio_fd, nullptr);
-
+	    gst_element_set_state(rx_pipeline, GST_STATE_PLAYING);
         } else {
             std::cerr << "failed to create rx_audio_pipeline" << std::endl;
         }
 
-        /*
         e = nullptr;
-        tx_pipeline = gst_parse_launch("autoaudiosrc ! audio/x-raw,format=S16LE, audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! fdsink name=fd sync=true", &e);
+        tx_pipeline = gst_parse_launch("autoaudiosrc ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! valve drop=true name=valve ! fdsink name=fd max-lateness=1000000000", &e);
         if (tx_pipeline) {
             std::cout << "setting up tx pipeline" << std::endl;
-            
             GstElement *fdsink = gst_bin_get_by_name(GST_BIN(tx_pipeline), "fd");
+	    tx_valve = gst_bin_get_by_name(GST_BIN(tx_pipeline), "valve");
             g_object_set(fdsink, "fd", audio_fd, nullptr);
-
-            gst_element_set_state(tx_pipeline, GST_STATE_PLAYING);
+	    gst_element_set_state(tx_pipeline, GST_STATE_PLAYING);
         } else {
             std::cerr << "failed to create tx_audio_pipeline" << std::endl;
         }
-        */
     }
 
     void start_dialtone() {
@@ -109,7 +115,9 @@ audio::audio(const std::string &audio_path)
 }
 
 audio::~audio() {
-
+     m_data->stop_dialtone();
+     gst_element_set_state(m_data->rx_pipeline, GST_STATE_NULL);
+     gst_element_set_state(m_data->tx_pipeline, GST_STATE_NULL);
 }
 
 void audio::start_dialtone() {
@@ -126,12 +134,28 @@ void audio::stop_dialtone() {
 
 void audio::start_rx_line() {
      if (m_data->rx_pipeline){
-	  gst_element_set_state(m_data->rx_pipeline, GST_STATE_PLAYING);
+	  //gst_element_set_state(m_data->rx_pipeline, GST_STATE_PLAYING);
+	  g_object_set(m_data->rx_valve, "drop", false, nullptr);
      }
 }
 
 void audio::stop_rx_line() {
      if (m_data->rx_pipeline){
-	  gst_element_set_state(m_data->rx_pipeline, GST_STATE_NULL);
+	  //gst_element_set_state(m_data->rx_pipeline, GST_STATE_PAUSED);
+	  g_object_set(m_data->rx_valve, "drop", true, nullptr);
+     }
+}
+
+void audio::start_tx_line() {
+     if (m_data->tx_pipeline) {
+	  //gst_element_set_state(m_data->tx_pipeline, GST_STATE_PLAYING);
+	  g_object_set(m_data->tx_valve, "drop", false, nullptr);
+     }
+}
+
+void audio::stop_tx_line() {
+     if (m_data->tx_pipeline) {
+	  //gst_element_set_state(m_data->tx_pipeline, GST_STATE_PAUSED);
+	  g_object_set(m_data->tx_valve, "drop", true, nullptr);
      }
 }

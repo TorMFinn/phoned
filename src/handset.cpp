@@ -50,16 +50,11 @@ struct handset::Data {
 	  while(not quit) {
 	       std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	       bool state = static_cast<bool>(gpio_pin_get(handle, HANDSET_SWITCH_READ));
+	       //std::cout << "state: " << std::boolalpha << state << std::endl;
 
 	       if (state != old_state) {
 		    state_cb(state);
 	       }
-	       /*
-	       else if (initial_read) {
-		    state_cb(state);
-		    initial_read = false;
-	       }
-	       */
 	       old_state = state;
 	  }
      }
@@ -76,4 +71,8 @@ handset::handset()
 
 handset::~handset() {
      ;
+}
+
+bool handset::is_handset_down() {
+     return m_data->old_state;
 }
