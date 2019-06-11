@@ -16,9 +16,9 @@ namespace phoned {
         boost::signals2::signal<void ()> incoming_call;
         //boost::signals2::signal<void ()> call_finnished;
 
-        bool dial(const std::string &number);
+        void dial(const std::string &number);
 
-	 bool has_dialtone();
+        bool has_dialtone();
 
         /** 
          * Hangup the current call
@@ -28,7 +28,7 @@ namespace phoned {
         /**
          * answers an incomming call
          */
-        bool answer_call();
+        void answer_call();
 
     private:
         struct Data;

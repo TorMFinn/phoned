@@ -33,19 +33,23 @@ void on_number(const std::string &number) {
      }
 }
 
-void on_headset_changed(bool state) {
-     handset_down = state;
-     if (state) {
-	  audio->stop_dialtone();
+void on_handset_changed(bool down) {
+    handset_down = down;
+    if (handset_down) {
+	  audio->pause_dialtone();
 	  std::cout << "handset down" << std::endl;
+          /*
 	  audio->stop_rx_line();
 	  audio->stop_tx_line();
 	  modem->hangup();
+          */
      } else {
+        std::cout << "handset up" << std::endl;
+        audio->start_dialtone();
+        /*
 	  if (modem->has_dialtone()) {
-	       audio->start_dialtone();
-	       std::cout << "handset up" << std::endl;
 	  }
+        */
      }
 }
 
@@ -56,10 +60,10 @@ int main(int argc, char **argv) {
      dial->on_number.connect(on_number);
 
      phoned::handset handset;
-     handset.state_changed.connect(on_headset_changed);
-     handset_down = handset.is_handset_down();
-     std::cout << "is handset down? " << std::boolalpha << handset_down
-	       << std::endl;
+     handset.state_changed.connect(on_handset_changed);
+
+     // Get initial state
+     on_handset_changed(handset.is_handset_down());
 
      /*
      phoned::ringer ringer;

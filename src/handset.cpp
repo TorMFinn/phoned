@@ -42,6 +42,8 @@ struct handset::Data {
 	  gpio_pin_input(handle, HANDSET_SWITCH_READ);
 	  gpio_pin_pulldown(handle, HANDSET_SWITCH_READ);
 
+          old_state = static_cast<bool>(gpio_pin_get(handle, HANDSET_SWITCH_READ));
+
 	  m_thd = std::thread(&handset::Data::read_thd, this);
      }
 
