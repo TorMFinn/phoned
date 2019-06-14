@@ -9,14 +9,10 @@ namespace phoned {
 	  ~audio();
 
 	  void start_dialtone();
-	  void pause_dialtone();
 	  void stop_dialtone();
 
-	  void start_rx_line();
-	  void stop_rx_line();
-
-	  void start_tx_line();
-	  void stop_tx_line();
+	  void start_audio_transfer();
+	  void stop_audio_transfer();
 
      private:
 	  struct Data;

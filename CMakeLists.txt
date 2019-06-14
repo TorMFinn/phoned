@@ -25,6 +25,7 @@ add_library(phoned-lib
 
 target_link_libraries(phoned-lib
   gpio
+  sndio
   ${GST_LIBRARIES}
   )
 

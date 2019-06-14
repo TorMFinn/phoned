@@ -27,29 +27,25 @@ void on_number(const std::string &number) {
      if (not handset_down) {
 	  std::cout << "dialing" << std::endl;
 	  audio->stop_dialtone();
-	  audio->start_tx_line();
-	  modem->dial(number);
-	  audio->start_rx_line();
+	  modem->dial("45420341");
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          audio->start_audio_transfer();
      }
 }
 
 void on_handset_changed(bool down) {
     handset_down = down;
     if (handset_down) {
-	  audio->pause_dialtone();
+	  audio->stop_dialtone();
 	  std::cout << "handset down" << std::endl;
-          /*
-	  audio->stop_rx_line();
-	  audio->stop_tx_line();
-	  modem->hangup();
-          */
+	      modem->hangup();
+          audio->stop_audio_transfer();
+          std::this_thread::sleep_for(std::chrono::seconds(1));
      } else {
         std::cout << "handset up" << std::endl;
-        audio->start_dialtone();
-        /*
 	  if (modem->has_dialtone()) {
+              audio->start_dialtone();
 	  }
-        */
      }
 }
 
