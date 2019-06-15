@@ -1,0 +1,17 @@
+/**
+ * Handles audio transfer to the modem and
+ * dialtone playback
+ */
+
+#include "skimpbuffers/BusConnection.hpp"
+
+using namespace skimpbuffers;
+
+int main() {
+  auto bus = BusConnection::Create("phone");
+
+  bus->AddDataSink([](const skimpbuffers::Data& data) {
+		   });
+
+  return 0;
+}

@@ -112,12 +112,15 @@ struct audio::Data {
         size_t n;
         while(call_in_progress) {
             n = sio_read(hdl_rec, snd_buf, bufsize_rec);
-            if (n >0 ) {
+            if (n > 0 ) {
+	      //std::cout << "writing audio to modem: " << n << std::endl;
+	      //serial.write_some(boost::asio::buffer(snd_buf, n));
                 serial.async_write_some(boost::asio::buffer(snd_buf, n),
                                         [](const boost::system::error_code& error, std::size_t bytes_transferred) {
-                                            std::cout << "Wrote audio to modem" << std::endl;
-                                            });
+					  std::cout << "Wrote audio to modem" << std::endl;
+					});
             }
+	    std::this_thread::sleep_for(std::chrono::milliseconds(70));
         }
     }
 

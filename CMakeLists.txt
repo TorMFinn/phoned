@@ -41,3 +41,11 @@ target_link_libraries(phoned
   phoned-lib
   pthread
   )
+
+add_executable(handsetd src/handsetd.cpp)
+
+target_link_libraries(handsetd
+	phoned-lib
+	skimpbuffers
+	pthread
+	)
