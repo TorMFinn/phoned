@@ -1,4 +1,5 @@
-#include "audio.hpp"
+//#include "dialtone.hpp"
+#include "modem_audio.hpp"
 #include "modem.hpp"
 #include "handset.hpp"
 #include "dial.hpp"
@@ -8,7 +9,7 @@
 #include <thread>
 #include <csignal>
 
-std::unique_ptr<phoned::audio> audio;
+std::unique_ptr<phoned::modem_audio> audio;
 std::unique_ptr<phoned::modem> modem;
 std::unique_ptr<phoned::dial> dial;
 
@@ -26,7 +27,8 @@ void on_number(const std::string &number) {
      std::cout << "number: " << number << std::endl;
      if (not handset_down) {
 	  std::cout << "dialing" << std::endl;
-	  audio->stop_dialtone();
+	  //audio->stop_dialtone();
+	  //phoned::stop_dialtone();
 	  modem->dial("99163563");
           std::this_thread::sleep_for(std::chrono::seconds(1));
           audio->start_audio_transfer();
@@ -36,7 +38,8 @@ void on_number(const std::string &number) {
 void on_handset_changed(bool down) {
     handset_down = down;
     if (handset_down) {
-	  audio->stop_dialtone();
+      //audio->stop_dialtone();
+      //phoned::stop_dialtone();
 	  std::cout << "handset down" << std::endl;
 	      modem->hangup();
           audio->stop_audio_transfer();
@@ -44,13 +47,15 @@ void on_handset_changed(bool down) {
      } else {
         std::cout << "handset up" << std::endl;
 	  if (modem->has_dialtone()) {
-              audio->start_dialtone();
+	    //audio->start_dialtone();
+	    //phoned::start_dialtone();
 	  }
      }
 }
 
 int main(int argc, char **argv) {
-     audio = std::make_unique<phoned::audio>("/dev/cuaU0.4");
+  phoned::serial_connection_info info = {"/dev/cuaU0.4", 921600};
+  audio = std::make_unique<phoned::modem_audio>(info);
      modem = std::make_unique<phoned::modem>("/dev/cuaU0.2");
      dial = std::make_unique<phoned::dial>();
      dial->on_number.connect(on_number);

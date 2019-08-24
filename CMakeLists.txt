@@ -16,9 +16,10 @@ add_executable(phoned
   )
 
 add_library(phoned-lib
-  src/audio.cpp
+  src/dialtone.cpp
   src/handset.cpp
   src/modem.cpp
+  src/modem_audio.cpp
   src/dial.cpp
   src/ringer.cpp
   )
@@ -42,10 +43,10 @@ target_link_libraries(phoned
   pthread
   )
 
-add_executable(handsetd src/handsetd.cpp)
+#add_executable(handsetd src/handsetd.cpp)
 
-target_link_libraries(handsetd
-	phoned-lib
-	skimpbuffers
-	pthread
-	)
+#target_link_libraries(handsetd
+#	phoned-lib
+#	skimpbuffers
+#	pthread
+#	)

@@ -95,7 +95,8 @@ struct audio::Data {
 	  snd_buf = static_cast<uint8_t*>(malloc(bufsize_rec));
 	  if (snd_buf == nullptr) {
 	       std::cerr << "failed to allocate bytes for send buffer" << std::endl;
-	  }
+  }
+
 	  rcv_buf = static_cast<uint8_t*>(malloc(bufsize_play));
 
 	  if (rcv_buf == nullptr) {
