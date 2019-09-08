@@ -18,6 +18,10 @@ namespace phoned {
 
         void dial(const std::string &number);
 
+        /*
+         * Verifies that the modem has a valid line
+         * And can do calls
+         */
         bool has_dialtone();
 
         /** 

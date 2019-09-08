@@ -1,17 +1,20 @@
-//#include "dialtone.hpp"
+#include "dialtone.hpp"
+/*
 #include "modem_audio.hpp"
 #include "modem.hpp"
 #include "handset.hpp"
 #include "dial.hpp"
 #include "ringer.hpp"
+*/
 #include <memory>
 #include <iostream>
 #include <thread>
 #include <csignal>
 
-std::unique_ptr<phoned::modem_audio> audio;
-std::unique_ptr<phoned::modem> modem;
-std::unique_ptr<phoned::dial> dial;
+//std::unique_ptr<phoned::modem_audio> audio;
+//std::unique_ptr<phoned::modem> modem;
+//std::unique_ptr<phoned::dial> dial;
+std::unique_ptr<phoned::dialtone> dialtone;
 
 bool quit;
 bool handset_down = true;
@@ -22,6 +25,7 @@ void sighandler(int signum) {
     }
 }
 
+/*
 void on_number(const std::string &number) {
      std::cout << "is handset down: " << std::boolalpha << std::endl;
      std::cout << "number: " << number << std::endl;
@@ -52,8 +56,10 @@ void on_handset_changed(bool down) {
 	  }
      }
 }
+*/
 
 int main(int argc, char **argv) {
+    /*
   phoned::serial_connection_info info = {"/dev/cuaU0.4", 921600};
   audio = std::make_unique<phoned::modem_audio>(info);
      modem = std::make_unique<phoned::modem>("/dev/cuaU0.2");
@@ -66,20 +72,21 @@ int main(int argc, char **argv) {
      // Get initial state
      on_handset_changed(handset.is_handset_down());
 
-     /*
      phoned::ringer ringer;
      std::this_thread::sleep_for(std::chrono::seconds(1));
      ringer.start_ring();
-     */
+    */
+    dialtone = std::make_unique<phoned::dialtone>();
+    dialtone->start();
 
      std::signal(SIGINT, sighandler);
      std::signal(SIGTERM, sighandler);
      quit = false;
      while(not quit) {
-	  std::this_thread::sleep_for(std::chrono::seconds(1));
+         std::this_thread::sleep_for(std::chrono::seconds(1));
      }
 
-     //ringer.stop_ring();
+     dialtone->stop();
 
      return 0;
 }

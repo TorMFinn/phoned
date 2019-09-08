@@ -4,30 +4,31 @@ project(phone)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include_directories(/usr/local/include)
-link_directories(/usr/local/lib)
+if (FreeBSD)
+  include_directories(/usr/local/include)
+  link_directories(/usr/local/lib)
+endif()
 
 find_package(PkgConfig)
-
-pkg_check_modules(GST REQUIRED gstreamer-1.0)
+find_package(SDL2 REQUIRED)
 
 add_executable(phoned
   src/phoned.cpp
   )
 
 add_library(phoned-lib
-  src/dialtone.cpp
-  src/handset.cpp
-  src/modem.cpp
-  src/modem_audio.cpp
-  src/dial.cpp
-  src/ringer.cpp
+  src/dialtone_sdl.cpp
+  #src/handset.cpp
+  #src/modem.cpp
+  #src/modem_audio.cpp
+  #src/dial.cpp
+  #src/ringer.cpp
   )
 
 target_link_libraries(phoned-lib
-  gpio
-  sndio
-  ${GST_LIBRARIES}
+  #gpio
+  SDL2::SDL2
+  #${GST_LIBRARIES}
   )
 
 target_include_directories(phoned-lib PRIVATE SYSTEM
