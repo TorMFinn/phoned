@@ -28,7 +28,6 @@ add_library(phoned-lib
 target_link_libraries(phoned-lib
   #gpio
   SDL2::SDL2
-  #${GST_LIBRARIES}
   )
 
 target_include_directories(phoned-lib PRIVATE SYSTEM
@@ -43,11 +42,3 @@ target_link_libraries(phoned
   phoned-lib
   pthread
   )
-
-#add_executable(handsetd src/handsetd.cpp)
-
-#target_link_libraries(handsetd
-#	phoned-lib
-#	skimpbuffers
-#	pthread
-#	)
