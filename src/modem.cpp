@@ -29,11 +29,11 @@ struct modem::Data {
     void open_port(const std::string &location) {
         port = std::make_unique<boost::asio::serial_port>(io_ctx, location);
         // The terminal is raw by default.
-        port->set_option(boost::asio::serial_port_base::baud_rate(3686400));
+        port->set_option(boost::asio::serial_port_base::baud_rate(921600));
         start_receive();
     }
 
-    int parse_cpas(const std::string rsp) {
+    int parse_cpas(const std::string &rsp) {
         ;
     }
 

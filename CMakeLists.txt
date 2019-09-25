@@ -19,8 +19,8 @@ add_executable(phoned
 add_library(phoned-lib
   src/dialtone_sdl.cpp
   #src/handset.cpp
-  #src/modem.cpp
-  #src/modem_audio.cpp
+  src/modem.cpp
+  src/modem_audio.cpp
   #src/dial.cpp
   #src/ringer.cpp
   )

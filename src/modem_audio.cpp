@@ -1,185 +1,140 @@
 #include "modem_audio.hpp"
-
-#include <termios.h>
-#include <poll.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sndio.h>
-#include <fcntl.h>
+#include <boost/asio.hpp>
 #include <thread>
+#include <iostream>
+#include <SDL2/SDL.h>
 
 using namespace phoned;
 
 struct modem_audio::Data {
-  int serial_fd;
+    boost::asio::io_context io;
+    boost::asio::serial_port port;
+    std::thread io_thd;
+    uint8_t recv_buf[4096];
+    bool writing_audio = false;
+    std::size_t play_bufsize;
+    std::size_t rec_bufsize;
+    SDL_AudioDeviceID play_device, record_device;
 
-  struct sio_hdl *hdl_play, *hdl_rec;
-  struct sio_par par_play, par_rec;
+    Data() : io(), port(io) {}
 
-  size_t bufsize_sio;
-
-  uint8_t* sndbuf;
-  uint8_t* rcvbuf;
-
-  std::thread process_thd;
-  std::atomic_bool quit_audio;
-  std::atomic_bool audio_running = false;
-
-  void open_serial_port(const serial_connection_info& info) {
-    serial_fd = open(info.device.c_str(), O_RDWR, O_NOCTTY);
-    if (serial_fd <= 0) {
-      throw std::runtime_error("failed to open audio serial port");
+    ~Data() {
+        if (not io.stopped()) {
+            io.stop();
+        }
     }
 
-    struct termios cfg;
-    cfmakeraw(&cfg);
+    void handle_received_data(const boost::system::error_code &error, std::size_t bytes_received) {
+        //std::cout << "received modem data" << bytes_received << std::endl;
+        SDL_QueueAudio(play_device, recv_buf, bytes_received);
 
-    cfg.c_cc[VMIN] = bufsize_sio;
-    if(cfsetspeed(&cfg, 3686400) < 0) {
-      printf("failed to set baudrate\n");
+        /*
+        uint8_t buf[512];
+        int bytes_dequed = SDL_DequeueAudio(record_device, buf, 512);
+        port.async_write_some(boost::asio::buffer(buf, bytes_dequed),
+        std::bind(&Data::write_handler, this, std::placeholders::_1, std::placeholders::_2));
+        */
+        start_receive();
     }
 
-    if (tcsetattr(serial_fd, TCSANOW, &cfg) <0 ) {
-      printf("failed to set serial config");
-    }
-  }
-
-  void init_sndio() {
-    hdl_play = sio_open(SIO_DEVANY, SIO_PLAY, 0);
-    if (hdl_play == nullptr) {
-      throw std::runtime_error("failed to create sio play device");
+    void write_handler(const boost::system::error_code, std::size_t bytes_transferred) {
+        std::cout << "Audio written" << std::endl;
+        writing_audio = false;
     }
 
-    hdl_rec = sio_open(SIO_DEVANY, SIO_REC, 0);
-    if (hdl_rec == nullptr) {
-      throw std::runtime_error("failed to create sio record device");
+    void start_receive() {
+        boost::asio::async_read(
+            port,
+            boost::asio::buffer(recv_buf, play_bufsize),
+            std::bind(&Data::handle_received_data, this, std::placeholders::_1, std::placeholders::_2));
     }
 
-    sio_initpar(&par_play);
-    sio_initpar(&par_rec);
-    par_play.bits = 16;
-    par_play.sig = 1;
-    par_play.le = 1;
-    par_play.pchan = 1;
-    par_play.rate = 8000;
-
-    par_rec.bits = 16;
-    par_rec.sig = 1;
-    par_rec.le = 1;
-    par_rec.rchan = 1;
-    par_rec.rate = 8000;
-
-    if (not sio_setpar(hdl_play, &par_play)) {
-      throw std::runtime_error("failed to set sio parameters");
+    static void audio_record_callback(void *userdata, uint8_t *stream, int len) {
+        modem_audio::Data *data = static_cast<modem_audio::Data*>(userdata);
+        //std::cout << "audio data received" << std::endl;
+        if (not data->writing_audio) {
+            data->writing_audio = true;
+            data->port.async_write_some(
+                boost::asio::buffer(stream, len), 
+                std::bind(&Data::write_handler, data, 
+                std::placeholders::_1, std::placeholders::_2));
+        }
     }
 
-    if (not sio_setpar(hdl_rec, &par_rec)) {
-      throw std::runtime_error("failed to set sio parameters");
+    bool init_sdl_audio() {
+        if(SDL_Init(SDL_INIT_AUDIO) < 0) {
+            std::cerr << "failed to init sdl audio: " << SDL_GetError() << std::endl;
+            return false;
+        }
+        SDL_AudioSpec play_want, play_have;
+        SDL_AudioSpec rec_want, rec_have;
+
+        SDL_memset(&play_want, 0, sizeof(play_want)); /* or SDL_zero(want) */
+        play_want.freq = 8000; // Sample rate
+        play_want.format = AUDIO_S16LSB;
+        play_want.channels = 1;
+        play_want.samples = 128;
+        play_want.callback = nullptr;  // you wrote this function elsewhere.
+        play_device = SDL_OpenAudioDevice(NULL, 0, &play_want, &play_have, 0);
+        play_bufsize = play_have.size;
+
+        if (play_device < 0) {
+            std::cerr << "failed to open play audio device: " << SDL_GetError() << std::endl;
+            return false;
+        }
+
+        SDL_memset(&rec_want, 0, sizeof(rec_want)); /* or SDL_zero(want) */
+        rec_want.freq = 8000; // Sample rate
+        rec_want.format = AUDIO_S16LSB;
+        rec_want.channels = 1;
+        rec_want.samples = 128;
+        rec_want.userdata = this;
+        rec_want.callback = audio_record_callback;
+        record_device = SDL_OpenAudioDevice(NULL, 1, &rec_want, &rec_have, 0);
+        rec_bufsize = rec_have.size;
+
+        if (record_device < 0) {
+            std::cerr << "failed to open record audio device: " << SDL_GetError() << std::endl;
+            return false;
+        }
+
+        return true;
     }
-
-    if (not sio_getpar(hdl_play, &par_play)) {
-      throw std::runtime_error("failed to get sio parameters");
-    }
-
-    if (not sio_getpar(hdl_rec, &par_rec)) {
-      throw std::runtime_error("failed to get sio parameters");
-    }
-
-    // This is the optimal buffer size for the desired parameters
-    bufsize_sio = par_rec.appbufsz;
-
-    sndbuf = (uint8_t*) malloc(bufsize_sio);
-    rcvbuf = (uint8_t*) malloc(bufsize_sio);
-
-    if (sndbuf == nullptr || rcvbuf == nullptr) {
-      throw std::runtime_error("failed to allocate sound buffers");
-    }
-  }
-
-  void process_data_thd() {
-    struct pollfd fds[1];
-    fds[0].fd = serial_fd;
-    fds[0].events = POLLIN | POLLOUT | POLLPRI;
-    while(not quit_audio) {
-      int r = poll(fds, 1, 100);
-      if (r < 0) {
-	// error
-      }
-      else if (r > 0) {
-	if (fds[0].revents & POLLIN) {
-	  // Can retrieve audio
-	  size_t received = read(serial_fd, rcvbuf, bufsize_sio);
-	  printf("received %zu bytes from modem\n", received);
-	  if (received > 0) {
-	    size_t n = sio_write(hdl_play, rcvbuf, bufsize_sio);
-	    if( n <= 0) {
-	      printf("Failed to write data to sndio device");
-	    }
-	  }
-	}
-	if (fds[0].revents & POLLOUT) {
-	  size_t a_read = sio_read(hdl_rec, sndbuf, bufsize_sio);
-	  if (a_read > 0) {
-	    size_t written = write(serial_fd, sndbuf, a_read);
-	    printf("wrote %zu bytes to serial audio port\n", written);
-	  }
-	}
-      }
-    }
-  }
-
-  void close_port() {
-    close(serial_fd);
-  }
-
 };
 
-modem_audio::modem_audio(const serial_connection_info &info)
-  : m_data(new Data()) {
-  m_data->init_sndio();
-  m_data->open_serial_port(info);
+modem_audio::modem_audio() 
+: m_data(new Data()) {
+
 }
 
 modem_audio::~modem_audio() {
-  stop_audio_transfer();
-  m_data->close_port();
+    stop_audio_transfer();
+}
+
+bool modem_audio::init_audio(const std::string &port, int baudrate) {
+    try {
+        m_data->port.open(port);
+        m_data->port.set_option(boost::asio::serial_port_base::baud_rate(baudrate));
+        if(m_data->init_sdl_audio()) {
+            m_data->start_receive();
+            m_data->io_thd = std::thread([&](){
+                m_data->io.run();
+            });
+            return true;
+        }
+    } catch (const boost::system::error_code &err) {
+        return false;
+    }
+
+    return false;
 }
 
 void modem_audio::start_audio_transfer() {
-  if(sio_start(m_data->hdl_play) == 0) {
-    printf("failed to start sio device");
-    return;
-  }
-
-  if(sio_start(m_data->hdl_rec) == 0) {
-    printf("failed to start sio device");
-    return;
-  }
-
-  m_data->process_thd = std::thread([&]() {
-    m_data->quit_audio = false;
-    m_data->process_data_thd();
-  });
-
-  m_data->audio_running = true;
+    SDL_PauseAudioDevice(m_data->record_device, 0);
+    SDL_PauseAudioDevice(m_data->play_device, 0);
 }
 
 void modem_audio::stop_audio_transfer() {
-    if (not m_data->audio_running) {
-        printf("audio is not running, no reason to stop");
-        return;
-    }
-  if (m_data->process_thd.joinable()) {
-    m_data->process_thd.join();
-  }
-
-  if(sio_stop(m_data->hdl_rec)) {
-    printf("failed to stop sndio handle\n");
-  }
-
-  if(sio_stop(m_data->hdl_play)) {
-    printf("failed to stop sndio handle\n");
-  }
-  m_data->audio_running = false;
+    SDL_PauseAudioDevice(m_data->record_device, 1);
+    SDL_PauseAudioDevice(m_data->play_device, 1);
 }
-  

@@ -4,15 +4,13 @@
 
 namespace phoned {
 
-  struct serial_connection_info {
-    std::string device;
-    int baudrate;
-  };
-
   class modem_audio {
   public:
-    modem_audio(const serial_connection_info &info);
+    modem_audio();
     ~modem_audio();
+
+    // Opens the serial port for audio read/write.
+    bool init_audio(const std::string &port, int baudrate);
 
     // Starts transferring audio towards the serial device
     void start_audio_transfer();

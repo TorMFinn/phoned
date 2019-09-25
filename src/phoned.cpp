@@ -1,7 +1,7 @@
 #include "dialtone.hpp"
-/*
 #include "modem_audio.hpp"
 #include "modem.hpp"
+/*
 #include "handset.hpp"
 #include "dial.hpp"
 #include "ringer.hpp"
@@ -76,17 +76,28 @@ int main(int argc, char **argv) {
      std::this_thread::sleep_for(std::chrono::seconds(1));
      ringer.start_ring();
     */
-    dialtone = std::make_unique<phoned::dialtone>();
-    dialtone->start();
+    //dialtone = std::make_unique<phoned::dialtone>();
 
-     std::signal(SIGINT, sighandler);
-     std::signal(SIGTERM, sighandler);
-     quit = false;
-     while(not quit) {
-         std::this_thread::sleep_for(std::chrono::seconds(1));
-     }
+    //auto modem = std::make_unique<phoned::modem>("/dev/ttyUSB2");
+    //modem->dial()
 
-     dialtone->stop();
+    phoned::modem_audio audio;
+    //modem->dial("45420341");
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (audio.init_audio("/dev/ttyUSB4", 921600)) {
+        std::cout << "Audio initialized :)" << std::endl;
+        audio.start_audio_transfer();
+    }
 
-     return 0;
+    std::signal(SIGINT, sighandler);
+    std::signal(SIGTERM, sighandler);
+    quit = false;
+    //dialtone->start();
+    while(not quit) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    //dialtone->stop();
+
+    return 0;
 }
