@@ -22,7 +22,9 @@ struct phoned::handset::Data {
     std::function<void (handset::handset_state state)> state_change_callback;
     std::thread gpio_read_thd;
     std::atomic_bool quit_read;
+    handset_state saved_state;
     int gpio_fd;
+    bool reading_switch = false;
 
     Data () {
         gpio_fd = open_gpio_device();
@@ -49,41 +51,41 @@ struct phoned::handset::Data {
                     return;
                 }
 
+                // Notify with initial state
+                saved_state = value_to_state(data.values[0]);
+
                 quit_read = false;
                 while(not quit_read) {
-                    struct gpioevent_data event;
-                    ret = read(req.fd, &event, sizeof(event));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    ret = ioctl(req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
                     if (ret == -1) {
-                        if (errno == -EAGAIN) {
-                            std::cerr << "nothing to read" << std::endl;
-                            continue;
-                        } else {
-                            std::cerr << "error reading: " << std::strerror(-ret) << std::endl;
-                            break;
-                        }
+                        std::cerr << "failed to read gpio state: " << std::strerror(-ret) << std::endl;
+                        continue;
                     }
-
-                    if (ret != sizeof(event)) {
-                        std::cerr << "reading event failed: " << std::strerror(-ret) << std::endl;
-                        break;
-                    }
-
-                    switch(event.id) {
-                    case GPIOEVENT_EVENT_RISING_EDGE:
-                        std::cout << "Rising event" << std::endl;
-                        break;
-                    case GPIOEVENT_EVENT_FALLING_EDGE:
-                        std::cout << "Falling edge" << std::endl;
-                        break;
-                    default:
-                        std::cout << "Unknown event" << std::endl;
-                        break;
-                    }
+                    update_state(data.values[0]);
                 }
-
-
             });
         }
+    }
+
+    void update_state(int value) {
+        auto new_state = value_to_state(value);
+        if (new_state != saved_state) {
+            try {
+                state_change_callback(new_state);
+                saved_state = new_state;
+            } catch (const std::exception &e) {
+                ;
+            }
+        }
+    }
+
+    handset_state value_to_state(int value) {
+        if (value == 1) {
+            return handset_state::down;
+        }
+
+        return handset_state::lifted;
     }
 
     ~Data () {
@@ -106,3 +108,14 @@ struct phoned::handset::Data {
     }
 };
 
+handset::handset()
+    : m_data(new Data()) {
+}
+
+handset::~handset() {
+}
+
+void handset::set_handset_state_changed_callback(std::function<void (handset_state)> callback) {
+    m_data->state_change_callback = callback;
+    m_data->state_change_callback(m_data->saved_state);
+}

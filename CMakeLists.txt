@@ -5,10 +5,22 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/ext/sanitizers-cmake/cmake" ${CMAKE_MOUDLE_PATH})
+find_package(Sanitizers)
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  message(STATUS "Enabling address sanitizers")
+  set(SANITIZE_ADDRESS ON)
+  set(SANITIZE_UNDEFINED ON)
+endif()
+
 find_package(SDL2 REQUIRED)
 
 add_executable(phoned_audiod
   src/bin/audiod.cpp
+  )
+
+add_executable(phoned_handsetd
+  src/bin/handsetd.cpp
   )
 
 add_library(libphoned
@@ -26,5 +38,15 @@ target_include_directories(libphoned PUBLIC
   )
 
 target_link_libraries(phoned_audiod
+  libphoned
+  )
+
+target_link_libraries(phoned_handsetd
+  libphoned
+  )
+
+add_sanitizers(
+  phoned_audiod
+  phoned_handsetd
   libphoned
   )

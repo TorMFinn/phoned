@@ -27,9 +27,9 @@ struct dialtone::Data {
         int buflen = len/2; // 16 bit data
         uint16_t *buf = reinterpret_cast<uint16_t*>(stream);
         for (int i = 0; i < buflen; i++) {
-            buf[i] = 6000 * sin(data->time);
+            buf[i] = 32000 * sin(data->time);
             data->time += (m_2pi * 425.0) / 8000.0;
-            if (data->time >= m_2pi) {
+            if (data->time > m_2pi) {
                 data->time -= m_2pi;
             }
         }
@@ -44,18 +44,24 @@ struct dialtone::Data {
         want.channels = 1;
         want.freq  = 8000;
         want.format = AUDIO_S16SYS;
-        want.samples = 4096; // Not sure why
+        want.samples = 4096;
         want.userdata = this;
         want.callback = audio_callback;
 
-        audio_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_ANY_CHANGE);
+        audio_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
         if (audio_dev == 0) {
             return { false, "failed to open audio device" };
         }
 
+        if (have.format == want.format) {
+            std::cout << "FORMAT IS EQUAL" << std::endl;
+        }
+
+        /*
         if (want.format != have.format) {
             return { false, "failed to get requested audio format" };
         }
+        */
 
         return {true, ""};
     }

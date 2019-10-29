@@ -20,10 +20,6 @@ void sighandler(int signum) {
     }
 }
 
-bool init_program_state(program_state &state) {
-    return true;
-}
-
 static int handle_start_dialtone(sd_bus_message* m, void *userdata, sd_bus_error *ret_error) {
     program_state* state = reinterpret_cast<program_state*>(userdata);
     state->dialtone.start();
@@ -36,6 +32,25 @@ static int handle_stop_dialtone(sd_bus_message* m, void *userdata, sd_bus_error 
     state->dialtone.stop();
 
     return sd_bus_reply_method_return(m, "", nullptr);
+}
+
+static int handle_handset_changed(sd_bus_message* m, void *userdata, sd_bus_error *ret_error)  {
+    int r;
+    const char* handset_state;
+    program_state *state = reinterpret_cast<program_state*>(userdata);
+    r = sd_bus_message_read(m, "s", &handset_state);
+    if (r < 0) {
+        std::cerr << "failed to read message from signal: " << std::strerror(-r) << std::endl;
+        return -1;
+    }
+
+    if (std::strcmp(handset_state, "down") == 0) {
+        state->dialtone.stop();
+    } else if (std::strcmp(handset_state, "lifted") == 0) {
+        state->dialtone.start();
+    }
+
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -76,6 +91,13 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/handset1", "tmf.phoned.handset1", "handset_state_change", handle_handset_changed, &state);
+    if (r < 0) {
+        std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
+        sd_bus_close_unref(bus);
+        return -1;
+    }
+
     sd_bus_attach_event(bus, event, 0);
 
     sd_event_loop(event);
@@ -84,6 +106,9 @@ int main(int argc, char **argv) {
     std::signal(SIGTERM, sighandler);
 
     sd_bus_close_unref(bus);
+    sd_event_unref(event);
+
+    std::cout << "Exiting" << std::endl;
 
     return 0;
 }
