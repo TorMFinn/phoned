@@ -1,11 +1,12 @@
 
 #include "phoned/dialtone.hpp"
 #include <SDL2/SDL.h>
+#include <cmath>
 #include <iostream>
 
 using namespace phoned;
 
-const float m_2pi = 2*M_PI;
+const float m_2pi = 6.28318530;
 
 struct dialtone::Data {
     SDL_AudioDeviceID audio_dev = 0;
@@ -28,9 +29,9 @@ struct dialtone::Data {
         uint16_t *buf = reinterpret_cast<uint16_t*>(stream);
         for (int i = 0; i < buflen; i++) {
             buf[i] = 32000 * sin(data->time);
-            data->time += (m_2pi * 425.0) / 8000.0;
+            data->time += (m_2pi * 425.0) / 44100.0;
             if (data->time > m_2pi) {
-                data->time -= m_2pi;
+                data->time = -m_2pi;
             }
         }
     }
@@ -42,8 +43,8 @@ struct dialtone::Data {
  
         memset(&want, 0, sizeof(want));
         want.channels = 1;
-        want.freq  = 8000;
-        want.format = AUDIO_S16SYS;
+        want.freq  = 44100;
+        want.format = AUDIO_S16;
         want.samples = 4096;
         want.userdata = this;
         want.callback = audio_callback;
@@ -51,10 +52,6 @@ struct dialtone::Data {
         audio_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
         if (audio_dev == 0) {
             return { false, "failed to open audio device" };
-        }
-
-        if (have.format == want.format) {
-            std::cout << "FORMAT IS EQUAL" << std::endl;
         }
 
         /*
