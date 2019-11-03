@@ -15,6 +15,8 @@ namespace phoned {
 
         void set_handset_state_changed_callback(std::function<void (handset_state)> callback);
 
+        handset_state get_state();
+
     private:
         struct Data;
         std::unique_ptr<Data> m_data;

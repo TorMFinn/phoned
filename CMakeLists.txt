@@ -13,28 +13,51 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   set(SANITIZE_UNDEFINED ON)
 endif()
 
-find_package(SDL2 REQUIRED)
+find_package(PkgConfig)
+
+pkg_check_modules(GST REQUIRED gstreamer-1.0)
 
 add_executable(phoned_audiod
   src/bin/audiod.cpp
   )
 
+add_executable(phoned_diald
+  src/bin/diald.cpp
+)
+
 add_executable(phoned_handsetd
   src/bin/handsetd.cpp
   )
 
+add_executable(phoned_ringerd
+  src/bin/ringerd.cpp
+)
+
+add_executable(phoned_modemd
+  src/bin/modemd.cpp
+)
+
 add_library(libphoned
   src/lib/dialtone.cpp
   src/lib/handset.cpp
+  src/lib/dial.cpp
+  src/lib/ringer.cpp
+  src/lib/modem.cpp
+  src/lib/modem_audio.cpp
   )
 
 target_link_libraries(libphoned
-  SDL2::SDL2
+  ${GST_LIBRARIES}
+  pthread
   systemd
   )
 
 target_include_directories(libphoned PUBLIC
   ${PROJECT_SOURCE_DIR}/include
+  )
+
+target_include_directories(libphoned PRIVATE
+  ${GST_INCLUDE_DIRS}
   )
 
 target_link_libraries(phoned_audiod
@@ -45,8 +68,21 @@ target_link_libraries(phoned_handsetd
   libphoned
   )
 
+target_link_libraries(phoned_diald
+  libphoned
+)
+
+target_link_libraries(phoned_ringerd
+  libphoned
+)
+
+target_link_libraries(phoned_modemd
+  libphoned
+)
+
 add_sanitizers(
   phoned_audiod
   phoned_handsetd
+  phoned_diald
   libphoned
   )

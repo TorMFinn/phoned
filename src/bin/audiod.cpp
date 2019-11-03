@@ -1,4 +1,5 @@
 #include "phoned/dialtone.hpp"
+#include "phoned/modem_audio.hpp"
 #include <systemd/sd-bus-vtable.h>
 #include <systemd/sd-bus.h>
 #include <csignal>
@@ -11,7 +12,11 @@
 sd_event *event;
 
 struct program_state {
+    phoned::modem_audio modem_audio;
     phoned::dialtone dialtone;
+
+    program_state()
+    : modem_audio("/dev/ttyUSB4", 921600) {}
 };
 
 void sighandler(int signum) {
@@ -23,34 +28,25 @@ void sighandler(int signum) {
 static int handle_start_dialtone(sd_bus_message* m, void *userdata, sd_bus_error *ret_error) {
     program_state* state = reinterpret_cast<program_state*>(userdata);
     state->dialtone.start();
-
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
 static int handle_stop_dialtone(sd_bus_message* m, void *userdata, sd_bus_error *ret_error) {
     program_state* state = reinterpret_cast<program_state*>(userdata);
     state->dialtone.stop();
-
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
-static int handle_handset_changed(sd_bus_message* m, void *userdata, sd_bus_error *ret_error)  {
-    int r;
-    const char* handset_state;
+static int handle_call_started(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     program_state *state = reinterpret_cast<program_state*>(userdata);
-    r = sd_bus_message_read(m, "s", &handset_state);
-    if (r < 0) {
-        std::cerr << "failed to read message from signal: " << std::strerror(-r) << std::endl;
-        return -1;
-    }
+    state->modem_audio.start_transfer();
+    return sd_bus_reply_method_return(m, "", nullptr);
+}
 
-    if (std::strcmp(handset_state, "down") == 0) {
-        state->dialtone.stop();
-    } else if (std::strcmp(handset_state, "lifted") == 0) {
-        state->dialtone.start();
-    }
-
-    return 0;
+static int handle_call_ended(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    program_state *state = reinterpret_cast<program_state*>(userdata);
+    state->modem_audio.stop_transfer();
+    return sd_bus_reply_method_return(m, "", nullptr);
 }
 
 int main(int argc, char **argv) {
@@ -88,14 +84,35 @@ int main(int argc, char **argv) {
     if (r < 0) {
         std::cerr << "failed to add object vtable: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);
-        return -1;
+        return EXIT_FAILURE;
     }
 
-    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/handset1", "tmf.phoned.handset1", "handset_state_change", handle_handset_changed, &state);
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "start_dialtone", handle_start_dialtone, &state);
     if (r < 0) {
         std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);
-        return -1;
+        return EXIT_FAILURE;
+    }
+
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "stop_dialtone", handle_stop_dialtone, &state);
+    if (r < 0) {
+        std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
+        sd_bus_close_unref(bus);
+        return EXIT_FAILURE;
+    }
+
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "call_started", handle_call_started, &state);
+    if (r < 0) {
+        std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
+        sd_bus_close_unref(bus);
+        return EXIT_FAILURE;
+    }
+
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "call_ended", handle_call_ended, &state);
+    if (r < 0) {
+        std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
+        sd_bus_close_unref(bus);
+        return EXIT_FAILURE;
     }
 
     sd_bus_attach_event(bus, event, 0);

@@ -18,6 +18,15 @@ void sighandler(int signum) {
     }
 }
 
+static int get_state_handler(sd_bus_message *m, void *userdata, sd_bus_error* err) {
+    phoned::handset *handset = reinterpret_cast<phoned::handset*>(userdata);
+    auto state = handset->get_state();
+    if (state == phoned::handset::handset_state::lifted) {
+        return sd_bus_reply_method_return(m, "s", "lifted");
+    } 
+    return sd_bus_reply_method_return(m, "s", "down");
+}
+
 int main(int argc, char**argv) {
     phoned::handset handset;
     std::mutex bus_mutex;
@@ -39,11 +48,12 @@ int main(int argc, char**argv) {
 
     const static sd_bus_vtable vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_METHOD("GetHandsetState", "", "s", get_state_handler, 0),
         SD_BUS_SIGNAL("handset_state_change", "s", 0),
         SD_BUS_VTABLE_END
     };
 
-    r = sd_bus_add_object_vtable(bus, nullptr, "/tmf/phoned/handset1", "tmf.phoned.handset1", vtable, nullptr);
+    r = sd_bus_add_object_vtable(bus, nullptr, "/tmf/phoned/handset1", "tmf.phoned.handset1", vtable, &handset);
     if (r < 0) {
         std::cerr << "failed to add object vtable: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);

@@ -4,6 +4,7 @@
 #include <atomic>
 #include <iostream>
 #include <thread>
+#include <mutex>
 
 #include <poll.h>
 #include <unistd.h>
@@ -25,6 +26,7 @@ struct phoned::handset::Data {
     handset_state saved_state;
     int gpio_fd;
     bool reading_switch = false;
+    std::mutex state_mutex;
 
     Data () {
         gpio_fd = open_gpio_device();
@@ -57,6 +59,7 @@ struct phoned::handset::Data {
                 quit_read = false;
                 while(not quit_read) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    std::scoped_lock lock(state_mutex);
                     ret = ioctl(req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
                     if (ret == -1) {
                         std::cerr << "failed to read gpio state: " << std::strerror(-ret) << std::endl;
@@ -117,5 +120,15 @@ handset::~handset() {
 
 void handset::set_handset_state_changed_callback(std::function<void (handset_state)> callback) {
     m_data->state_change_callback = callback;
-    m_data->state_change_callback(m_data->saved_state);
+    handset_state state;
+    {
+        std::scoped_lock lock(m_data->state_mutex);
+        state = m_data->saved_state;
+    }
+    m_data->state_change_callback(state);
+}
+
+handset::handset_state handset::get_state() {
+    std::scoped_lock lock(m_data->state_mutex);
+    return m_data->saved_state;
 }
