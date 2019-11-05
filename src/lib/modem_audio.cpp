@@ -9,10 +9,12 @@
 using namespace phoned;
 
 struct modem_audio::Data {
-    Data(const std::string &serial_device, int baudrate) {
+    Data(const std::string &device, int baud) {
+        serial_device = device;
+        baudrate = baud;
         gst_init(nullptr, nullptr);
         GError *error;
-        playback_pipeline = gst_parse_launch("fdsrc ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! autoaudiosink", &error);
+        playback_pipeline = gst_parse_launch("fdsrc ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! pulsesink sync=false", &error);
         if (playback_pipeline == nullptr) {
             throw std::runtime_error("failed to create recording pipeline");
         }
@@ -21,8 +23,14 @@ struct modem_audio::Data {
             throw std::runtime_error("failed to create playback pipeline");
         }
 
-        init_serial(serial_device, baudrate);
+        init_serial();
+        init_gst_fds();
+    }
 
+    ~Data() {
+    }
+
+    void init_gst_fds() {
         GstElement *fdsrc = gst_bin_get_by_name(GST_BIN(playback_pipeline), "fdsrc0");
         if (fdsrc == nullptr) {
             throw std::runtime_error("failed to get fdsrc from record pipeline");
@@ -33,18 +41,26 @@ struct modem_audio::Data {
             throw std::runtime_error("failed to get fdsink ");
         }
 
-        g_object_set(fdsrc, "fd", serial_fd, "blocksize", 512, nullptr);
-        g_object_set(fdsink, "fd", serial_fd, "blocksize", 512, nullptr);
+        GstElement *pulsesrc = gst_bin_get_by_name(GST_BIN(record_pipeline), "pulsesrc0");
+        if (pulsesrc == nullptr) {
+            throw std::runtime_error("failed to get pulsesrc from pipeline");
+        }
+
+        GstElement *pulsesink = gst_bin_get_by_name(GST_BIN(playback_pipeline), "pulsesink0");
+        if (pulsesink == nullptr) {
+            throw std::runtime_error("failed to get pulsesink from pipeline");
+        }
+
+        g_object_set(fdsrc, "fd", serial_fd, "blocksize", 4096, nullptr);
+        g_object_set(fdsink, "fd", serial_fd, "blocksize", 256, nullptr);
+
+        //g_object_set(pulsesrc, "blocksize", 128, nullptr);
+        //g_object_set(pulsesink, "blocksize", 128, nullptr);
     }
 
-    ~Data() {
-        gst_element_set_state(record_pipeline, GST_STATE_NULL);
-        gst_element_set_state(playback_pipeline, GST_STATE_NULL);
-    }
-
-    void init_serial(const std::string &serial_device, int baudrate) {
+    void init_serial() {
         int ret;
-        serial_fd = open(serial_device.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
+        serial_fd = open(serial_device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
         if (serial_fd == -1) {
             throw std::runtime_error(std::string("failed to open serial device: ") + std::strerror(errno));
         }
@@ -63,16 +79,23 @@ struct modem_audio::Data {
     }
 
     int serial_fd;
+    int baudrate;
+    std::string serial_device;
     GstElement* record_pipeline;
     GstElement* playback_pipeline;
 };
 
 modem_audio::modem_audio(const std::string &serial_device, int baudrate) 
-: m_data(new Data(serial_device, baudrate)) {}
+: m_data(new Data(serial_device, baudrate)) {
+}
 
-modem_audio::~modem_audio() = default;
+modem_audio::~modem_audio() {
+    stop_transfer();
+}
 
 void modem_audio::start_transfer() {
+    m_data->init_serial();
+    m_data->init_gst_fds();
     std::cout << "Starting transfer" << std::endl;
     gst_element_set_state(m_data->record_pipeline, GST_STATE_PLAYING);
     gst_element_set_state(m_data->playback_pipeline, GST_STATE_PLAYING);
@@ -80,6 +103,7 @@ void modem_audio::start_transfer() {
 
 void modem_audio::stop_transfer() {
     std::cout << "Stopping transfer" << std::endl;
-    gst_element_set_state(m_data->record_pipeline, GST_STATE_PAUSED);
-    gst_element_set_state(m_data->playback_pipeline, GST_STATE_PAUSED);
+    gst_element_set_state(m_data->record_pipeline, GST_STATE_NULL);
+    gst_element_set_state(m_data->playback_pipeline, GST_STATE_NULL);
+    close(m_data->serial_fd);
 }

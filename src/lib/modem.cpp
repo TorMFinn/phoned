@@ -84,6 +84,8 @@ struct modem::Data {
                 call_in_progress = false;
                 call_is_incoming = false;
                 call_ended_handler();
+                // Give time for audio to stop transfer
+                //std::this_thread::sleep_for(std::chrono::seconds(1));
                 stop_audio();
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_ended handler is set" << std::endl;
@@ -91,8 +93,8 @@ struct modem::Data {
         } else if (msg.find("VOICE CALL: BEGIN") != msg.npos) {
             try {
                 call_in_progress = true;
-                call_started_handler();
                 start_audio();
+                call_started_handler();
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_started handler is set" << std::endl;
             }
@@ -171,6 +173,7 @@ modem::~modem() = default;
 void modem::dial(const std::string &number) {
     if(m_data->dial_number(number)) {
         m_data->start_audio();
+        m_data->call_in_progress = true;
         // Call now so that audiod will get the signal to start audio transfer
         m_data->call_started_handler();
     }
@@ -181,7 +184,14 @@ void modem::answer_call() {
 }
 
 void modem::hangup() {
-    m_data->write_command("AT+CHUP\r\n");
+    if(m_data->write_command("AT+CHUP\r\n") > 0) {
+        m_data->call_in_progress = false;
+        m_data->call_is_incoming = false;
+        m_data->call_ended_handler();
+        // Give time for audio to stop transfer
+        //std::this_thread::sleep_for(std::chrono::seconds(1));
+        m_data->stop_audio();
+    }
 }
 
 bool modem::has_dialtone(){

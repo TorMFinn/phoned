@@ -50,6 +50,8 @@ target_link_libraries(libphoned
   ${GST_LIBRARIES}
   pthread
   systemd
+  pulse
+  pulse-simple
   )
 
 target_include_directories(libphoned PUBLIC

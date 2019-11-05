@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    ret = sd_bus_request_name(bus, "tmf.phoned.ringer1", 0);
+    ret = sd_bus_request_name(bus, "tmf.phoned.ringerd1", 0);
     if (ret < 0) {
         std::cerr << "failed to get requested bus name: " << std::strerror(-ret) << std::endl;
         sd_bus_close_unref(bus);

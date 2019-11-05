@@ -5,9 +5,14 @@
 #include <csignal>
 #include <atomic>
 #include <systemd/sd-event.h>
+#include <pulse/simple.h>
+#include <pulse/error.h>
 #include <thread>
 #include <iostream>
 #include <cstring>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 sd_event *event;
 
@@ -66,7 +71,7 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    r = sd_bus_request_name(bus, "tmf.phoned1", 0);
+    r = sd_bus_request_name(bus, "tmf.phoned.audiod1", 0);
     if (r < 0) {
         std::cerr << "call for request name failed: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);
@@ -80,7 +85,7 @@ int main(int argc, char **argv) {
         SD_BUS_VTABLE_END
     };
 
-    r = sd_bus_add_object_vtable(bus, nullptr, "/phoned1/Audio", "phoned1.Audio", vtable, &state);
+    r = sd_bus_add_object_vtable(bus, nullptr, "/tmf/phoned/Audio", "tmf.phoned.Audio", vtable, &state);
     if (r < 0) {
         std::cerr << "failed to add object vtable: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);

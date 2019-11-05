@@ -39,7 +39,7 @@ int main(int argc, char**argv) {
         return -1;
     }
 
-    r = sd_bus_request_name(bus, "tmf.phoned.handset1", 0);
+    r = sd_bus_request_name(bus, "tmf.phoned.handsetd1", 0);
     if (r < 0) {
         std::cerr << "failed to get requested name" << std::endl;
         sd_bus_close_unref(bus);
@@ -53,7 +53,7 @@ int main(int argc, char**argv) {
         SD_BUS_VTABLE_END
     };
 
-    r = sd_bus_add_object_vtable(bus, nullptr, "/tmf/phoned/handset1", "tmf.phoned.handset1", vtable, &handset);
+    r = sd_bus_add_object_vtable(bus, nullptr, "/tmf/phoned/Handset", "tmf.phoned.Handset", vtable, &handset);
     if (r < 0) {
         std::cerr << "failed to add object vtable: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);
@@ -63,14 +63,14 @@ int main(int argc, char**argv) {
     handset.set_handset_state_changed_callback([&bus, &bus_mutex](phoned::handset::handset_state state) {
         if (state == phoned::handset::handset_state::down) {
             std::scoped_lock lock(bus_mutex);
-            int r = sd_bus_emit_signal(bus, "/tmf/phoned/handset1", "tmf.phoned.handset1", "handset_state_change", "s", "down");
+            int r = sd_bus_emit_signal(bus, "/tmf/phoned/Handset", "tmf.phoned.Handset", "handset_state_change", "s", "down");
             if (r < 0) {
                 std::cerr << "failed to emit signal: " << std::strerror(-r) << std::endl;
             }
         } else {
             std::scoped_lock lock(bus_mutex);
             bool state = false;
-            int r = sd_bus_emit_signal(bus, "/tmf/phoned/handset1", "tmf.phoned.handset1", "handset_state_change", "s", "lifted");
+            int r = sd_bus_emit_signal(bus, "/tmf/phoned/Handset", "tmf.phoned.Handset", "handset_state_change", "s", "lifted");
             if (r < 0) {
                 std::cerr << "failed to emit signal: " << std::strerror(-r) << std::endl;
             }

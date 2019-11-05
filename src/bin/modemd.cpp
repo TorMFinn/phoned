@@ -17,21 +17,26 @@ void sighandler(int signum) {
 
 static int dial_number_handler(sd_bus_message *m, void *userdata, sd_bus_error *err) {
     // Call handsetd and ask if handset is actually lifted or not
-    sd_bus_message *reply;
-    sd_bus_error call_error;
+    sd_bus_message *reply = nullptr;
+    sd_bus_error call_error = SD_BUS_ERROR_NULL;
     const char *state_string;
     int call_ok = sd_bus_call_method(sd_bus_message_get_bus(m),
-                                    "tmf.phoned.handset1", 
+                                    "tmf.phoned.handsetd1", 
                                     "/tmf/phoned/Handset", 
-                                    "tmp.phoned.handset1", 
+                                    "tmf.phoned.Handset", 
                                     "GetHandsetState",
                                     &call_error,
-                                    &reply, "s", &state_string);
+                                    &reply, "");
     if (call_ok < 0) {
         std::cerr << "failed to get handset state: " << std::strerror(-call_ok) << std::endl;
         return sd_bus_reply_method_return(m, "b", false);
     } 
 
+    int r = sd_bus_message_read(reply, "s", &state_string);
+    if (r < 0) {
+        std::cerr << "failed to read message reply after call to GetHandsetState: " << std::strerror(-r) << std::endl;
+        return sd_bus_reply_method_return(m, "b", false);
+    }
     if (std::string(state_string) == "lifted") {
         phoned::modem* modem = reinterpret_cast<phoned::modem*>(userdata);
         const char *number;
@@ -114,9 +119,15 @@ int main() {
         goto cleanup;
     }
 
-    ret = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/handset1", "tmf.phoned.handset1", "handset_state_change", handle_handset_change, &modem);
+    ret = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Handset", "tmf.phoned.Handset", "handset_state_change", handle_handset_change, &modem);
     if (ret < 0) {
         std::cerr << "failed to add signal match for handset_change: " << std::strerror(-ret) << std::endl;
+        goto cleanup;
+    }
+
+    ret = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Dial", "tmf.phoned.Dial", "number_entered", dial_number_handler, &modem);
+    if (ret < 0) {
+        std::cerr << "failed to add signal match for number_entered: " << std::strerror(-ret) << std::endl;
         goto cleanup;
     }
 
@@ -141,6 +152,10 @@ int main() {
         r = sd_bus_emit_signal(bus, "/tmf/phoned/Modem", "tmf.phoned.Modem", "call_started", "");
         if (r < 0) {
             std::cerr << "failed to emit call_started signal: " << std::strerror(-r) << std::endl;
+        }
+        r = sd_bus_emit_signal(bus, "/tmf/phoned/Modem", "tmf.phoned.Modem", "stop_dialtone", "");
+        if (r < 0) {
+            std::cerr << "failed to emit stop_dialtone signal: " << std::strerror(-r) << std::endl;
         }
     });
 
