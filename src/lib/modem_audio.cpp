@@ -5,6 +5,8 @@
 #include <iostream>
 #include "fcntl.h"
 #include "unistd.h"
+#include "poll.h"
+#include <mutex>
 
 using namespace phoned;
 
@@ -14,17 +16,15 @@ struct modem_audio::Data {
         baudrate = baud;
         gst_init(nullptr, nullptr);
         GError *error;
-        playback_pipeline = gst_parse_launch("fdsrc ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! pulsesink sync=false", &error);
+        playback_pipeline = gst_parse_launch("fdsrc ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! audioresample ! pulsesink", &error);
         if (playback_pipeline == nullptr) {
             throw std::runtime_error("failed to create recording pipeline");
         }
+
         record_pipeline = gst_parse_launch("pulsesrc ! audio/x-raw,format=S16LE,layout=interleaved,rate=8000,channels=1 ! fdsink", &error);
         if (record_pipeline == nullptr) {
             throw std::runtime_error("failed to create playback pipeline");
         }
-
-        init_serial();
-        init_gst_fds();
     }
 
     ~Data() {
@@ -51,7 +51,7 @@ struct modem_audio::Data {
             throw std::runtime_error("failed to get pulsesink from pipeline");
         }
 
-        g_object_set(fdsrc, "fd", serial_fd, "blocksize", 4096, nullptr);
+        g_object_set(fdsrc, "fd", serial_fd, "blocksize", 256, nullptr);
         g_object_set(fdsink, "fd", serial_fd, "blocksize", 256, nullptr);
 
         //g_object_set(pulsesrc, "blocksize", 128, nullptr);
@@ -78,11 +78,15 @@ struct modem_audio::Data {
         }
     }
 
+    bool process;
     int serial_fd;
     int baudrate;
+    std::mutex fd_mutex;
     std::string serial_device;
     GstElement* record_pipeline;
     GstElement* playback_pipeline;
+    GstElement* appsrc;
+    GstElement* appsink;
 };
 
 modem_audio::modem_audio(const std::string &serial_device, int baudrate) 

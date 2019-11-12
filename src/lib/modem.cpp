@@ -84,17 +84,18 @@ struct modem::Data {
                 call_in_progress = false;
                 call_is_incoming = false;
                 call_ended_handler();
-                // Give time for audio to stop transfer
-                //std::this_thread::sleep_for(std::chrono::seconds(1));
+                // Stops writing during the handler and allows the modem to be able to flush its buffers
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 stop_audio();
+                // Give time for audio to stop transfer
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_ended handler is set" << std::endl;
             }
         } else if (msg.find("VOICE CALL: BEGIN") != msg.npos) {
             try {
                 call_in_progress = true;
-                start_audio();
                 call_started_handler();
+                start_audio();
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_started handler is set" << std::endl;
             }
@@ -107,15 +108,27 @@ struct modem::Data {
     }
 
     bool start_audio() {
-        std::cout << "Sending audio transfer request" << std::endl;
-        const std::string cmd = std::string("AT+CPCMREG=1\r\n");
-        return write_command(cmd) > 0;
+        if (not audio_started) {
+            std::cout << "Sending audio transfer request" << std::endl;
+            const std::string cmd = std::string("AT+CPCMREG=1\r\n");
+            if (write_command(cmd) > 0) {
+                audio_started = true;
+            }
+        }
+        //std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        return audio_started;
     }
 
     bool stop_audio() {
-        std::cout << "Sending stop audio transfer request" << std::endl;
-        const std::string cmd = std::string("AT+CPCMREG=0\r\n");
-        return write_command(cmd) > 0;
+        if (audio_started) {
+            std::cout << "Sending stop audio transfer request" << std::endl;
+            const std::string cmd = std::string("AT+CPCMREG=0\r\n");
+            if (write_command(cmd) > 0) {
+                audio_started = false;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(400));
+        return !audio_started;
     }
 
     ssize_t write_command(const std::string &command) {
@@ -154,6 +167,7 @@ struct modem::Data {
     bool do_read;
     bool call_is_incoming = false;
     bool call_in_progress = false;
+    bool audio_started = false;
     std::thread read_thd;
     std::mutex port_mutex;
 
@@ -172,8 +186,8 @@ modem::~modem() = default;
 
 void modem::dial(const std::string &number) {
     if(m_data->dial_number(number)) {
-        m_data->start_audio();
         m_data->call_in_progress = true;
+        m_data->start_audio();
         // Call now so that audiod will get the signal to start audio transfer
         m_data->call_started_handler();
     }
@@ -188,14 +202,12 @@ void modem::hangup() {
         m_data->call_in_progress = false;
         m_data->call_is_incoming = false;
         m_data->call_ended_handler();
-        // Give time for audio to stop transfer
-        //std::this_thread::sleep_for(std::chrono::seconds(1));
         m_data->stop_audio();
     }
 }
 
 bool modem::has_dialtone(){
-    ;
+    return true;
 }
 
 bool modem::call_incoming() {

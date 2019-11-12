@@ -44,14 +44,15 @@ add_library(libphoned
   src/lib/ringer.cpp
   src/lib/modem.cpp
   src/lib/modem_audio.cpp
+  #src/lib/modem_audio_sdl.cpp
+  #src/lib/modem_audio_asio.cpp
   )
 
 target_link_libraries(libphoned
   ${GST_LIBRARIES}
   pthread
   systemd
-  pulse
-  pulse-simple
+  SDL2
   )
 
 target_include_directories(libphoned PUBLIC
