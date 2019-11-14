@@ -8,6 +8,9 @@ namespace phoned {
         modem_audio(const std::string &serial_device, int baudrate);
         ~modem_audio();
 
+        void start_voice_transfer();
+        void stop_voice_transfer();
+
         void start_transfer();
         void stop_transfer();
 

@@ -60,7 +60,7 @@ struct modem::Data {
     }
 
     void handle_message(const std::string &msg) {
-        std::cout << "MESSAGE: " << msg << std::endl;
+        std::cout << "MESSAGE: \n" << msg << std::endl;
         if (msg == "OK") {
             return;
         }
@@ -80,11 +80,17 @@ struct modem::Data {
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_missed handler is set" << std::endl;
             }
+        } else if (msg.find("BUSY") != msg.npos) {
+            call_in_progress = false;
+            call_ended_handler();
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            stop_audio();
         } else if (msg.find("VOICE CALL: END") != msg.npos) {
             try {
                 call_in_progress = false;
                 call_is_incoming = false;
                 call_ended_handler();
+                voice_end_handler();
                 // Stops writing during the handler and allows the modem to be able to flush its buffers
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 stop_audio();
@@ -97,6 +103,7 @@ struct modem::Data {
                 call_in_progress = true;
                 start_audio();
                 call_started_handler();
+                voice_begin_handler();
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_started handler is set" << std::endl;
             }
@@ -177,6 +184,8 @@ struct modem::Data {
     std::function <void ()> call_missed_handler;
     std::function <void ()> call_ended_handler;
     std::function <void ()> call_started_handler;
+    std::function <void ()> voice_begin_handler;
+    std::function <void ()> voice_end_handler;
 };
 
 modem::modem(const std::string &serial_device, int baudrate) 
@@ -232,4 +241,12 @@ void modem::set_call_ended_handler(std::function<void ()> handler) {
 
 void modem::set_call_started_handler(std::function<void ()> handler) {
     m_data->call_started_handler = handler;
+}
+
+void modem::set_voice_call_begin_handler(std::function<void ()> handler) {
+    m_data->voice_begin_handler = handler;
+}
+
+void modem::set_voice_call_end_handler(std::function<void ()> handler) {
+    m_data->voice_end_handler = handler;
 }

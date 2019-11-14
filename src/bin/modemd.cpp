@@ -90,6 +90,8 @@ const sd_bus_vtable vtable[] = {
     SD_BUS_SIGNAL("call_missed", "", 0),
     SD_BUS_SIGNAL("call_started", "", 0),
     SD_BUS_SIGNAL("call_ended", "", 0),
+    SD_BUS_SIGNAL("voice_call_begin", "", 0),
+    SD_BUS_SIGNAL("voice_call_end", "", 0),
     SD_BUS_SIGNAL("start_dialtone", "", 0),
     SD_BUS_SIGNAL("stop_dialtone", "", 0),
     SD_BUS_VTABLE_END
@@ -164,6 +166,22 @@ int main() {
         r = sd_bus_emit_signal(bus, "/tmf/phoned/Modem", "tmf.phoned.Modem", "call_ended", "");
         if (r < 0) {
             std::cerr << "failed to emit call_ended signal: " << std::strerror(-r) << std::endl;
+        }
+    });
+
+    modem.set_voice_call_begin_handler([&bus]() -> void {
+        int r;
+        r = sd_bus_emit_signal(bus, "/tmf/phoned/Modem", "tmf.phoned.Modem", "voice_call_begin", "");
+        if (r < 0 ) {
+            std::cerr << "failed to emit voice_call_begin signal: " << std::strerror(-r) << std::endl;
+        }
+    });
+
+    modem.set_voice_call_end_handler([&bus]() -> void {
+        int r;
+        r = sd_bus_emit_signal(bus, "/tmf/phoned/Modem", "tmf.phoned.Modem", "voice_call_end", "");
+        if (r < 0) {
+            std::cerr << "failed to emit voice_call_end signal: " << std::strerror(-r) << std::endl;
         }
     });
 

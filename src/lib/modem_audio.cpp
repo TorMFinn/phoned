@@ -97,6 +97,14 @@ modem_audio::~modem_audio() {
     stop_transfer();
 }
 
+void modem_audio::start_voice_transfer() {
+
+}
+
+void modem_audio::stop_voice_transfer() {
+
+}
+
 void modem_audio::start_transfer() {
     m_data->init_serial();
     m_data->init_gst_fds();

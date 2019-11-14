@@ -20,6 +20,8 @@ namespace phoned {
         void set_call_missed_handler(std::function <void ()> handler);
         void set_call_ended_handler(std::function <void ()> handler);
         void set_call_started_handler(std::function <void ()> handler);
+        void set_voice_call_begin_handler(std::function<void ()> handler);
+        void set_voice_call_end_handler(std::function<void ()> handler);
 
         private:
         struct Data;

@@ -42,7 +42,7 @@ struct modem_audio::Data {
         want_record.channels = 1;
         want_record.format = AUDIO_S16LSB;
         want_record.freq = 8000;
-        want_record.samples = 256;
+        want_record.samples = 128;
 
         playback_device = SDL_OpenAudioDevice(nullptr, 0, &want_playback, &have_playback, 0);
         if (playback_device == 0) {
@@ -61,7 +61,6 @@ struct modem_audio::Data {
     static void audio_recording_handler(void *userdata, uint8_t *buffer, int len) {
         modem_audio::Data *data = reinterpret_cast<modem_audio::Data*>(userdata);
         if (data) {
-            std::scoped_lock lock(data->write_ok_mutex);
             if (data->output_possible) {
                 ssize_t bytes_written = write(data->serial_fd, buffer, len);
                 std::cout << "bytes written: " << bytes_written << std::endl;
@@ -120,10 +119,9 @@ struct modem_audio::Data {
                         std::cout << "read: " << bytes_read << std::endl;
                     } 
                     if (fds[0].revents & POLLOUT) {
-                        if (data_was_received) {
+                        if (data_was_received && start_voice_transfer) {
                             // Do not send before we have actually received something from the modem
                             // This signals that it is infact ready
-                            std::scoped_lock lock(write_ok_mutex);
                             output_possible = true;
                         }
                     }
@@ -131,6 +129,7 @@ struct modem_audio::Data {
                     std::cerr << "read error: " << std::strerror(errno) << std::endl;
                 }
             }
+            output_possible = false;
             data_was_received = false;
             transfer_started = false;
         });
@@ -156,6 +155,7 @@ struct modem_audio::Data {
         }
     }
 
+    bool start_voice_transfer = false;
     bool data_was_received = false;
     bool transfer_started = false;
     bool quit;
@@ -163,7 +163,6 @@ struct modem_audio::Data {
     int serial_fd;
     int baudrate;
     std::string serial_device;
-    std::mutex write_ok_mutex;
     std::thread read_thd;
     SDL_AudioDeviceID playback_device;
     SDL_AudioDeviceID record_device;
@@ -175,6 +174,14 @@ modem_audio::modem_audio(const std::string &device, int baudrate)
 }
 
 modem_audio::~modem_audio() = default;
+
+void modem_audio::start_voice_transfer() {
+    m_data->start_voice_transfer = true;
+}
+
+void modem_audio::stop_voice_transfer() {
+    m_data->start_voice_transfer = false;
+}
 
 void modem_audio::start_transfer() {
     m_data->start_serial();

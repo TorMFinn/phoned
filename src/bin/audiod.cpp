@@ -54,6 +54,18 @@ static int handle_call_ended(sd_bus_message *m, void *userdata, sd_bus_error *re
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
+static int handle_voice_begin(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    program_state *state = reinterpret_cast<program_state*>(userdata);
+    state->modem_audio.start_voice_transfer();
+    return sd_bus_reply_method_return(m, "", nullptr);
+}
+
+static int handle_voice_end(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    program_state *state = reinterpret_cast<program_state*>(userdata);
+    state->modem_audio.stop_voice_transfer();
+    return sd_bus_reply_method_return(m, "", nullptr);
+}
+
 int main(int argc, char **argv) {
     program_state state;
 
@@ -114,6 +126,20 @@ int main(int argc, char **argv) {
     }
 
     r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "call_ended", handle_call_ended, &state);
+    if (r < 0) {
+        std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
+        sd_bus_close_unref(bus);
+        return EXIT_FAILURE;
+    }
+
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "voice_call_begin", handle_voice_begin, &state);
+    if (r < 0) {
+        std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
+        sd_bus_close_unref(bus);
+        return EXIT_FAILURE;
+    }
+
+    r = sd_bus_match_signal(bus, nullptr, nullptr, "/tmf/phoned/Modem", "tmf.phoned.Modem", "voice_call_end", handle_voice_end, &state);
     if (r < 0) {
         std::cerr << "failed to match signal: " << std::strerror(-r) << std::endl;
         sd_bus_close_unref(bus);
