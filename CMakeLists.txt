@@ -43,8 +43,8 @@ add_library(libphoned
   src/lib/dial.cpp
   src/lib/ringer.cpp
   src/lib/modem.cpp
-  src/lib/modem_audio.cpp
-  #src/lib/modem_audio_sdl.cpp
+  #src/lib/modem_audio.cpp
+  src/lib/modem_audio_sdl.cpp
   #src/lib/modem_audio_asio.cpp
   )
 

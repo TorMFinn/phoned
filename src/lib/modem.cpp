@@ -74,6 +74,7 @@ struct modem::Data {
             }
         } else if (msg.find("MISSED_CALL") != msg.npos) {
             try {
+                call_in_progress = false; // New, may not need this?
                 call_is_incoming = false;
                 call_missed_handler();
             } catch (const std::bad_function_call) {
@@ -94,8 +95,8 @@ struct modem::Data {
         } else if (msg.find("VOICE CALL: BEGIN") != msg.npos) {
             try {
                 call_in_progress = true;
-                call_started_handler();
                 start_audio();
+                call_started_handler();
             } catch (const std::bad_function_call) {
                 std::cerr << "warning, no call_started handler is set" << std::endl;
             }
@@ -136,6 +137,7 @@ struct modem::Data {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         std::scoped_lock lock(port_mutex);
+        std::cout << "Writing command: " << command << std::endl;
         int bytes_written = write(serial_fd, command.c_str(), command.size());
         if (bytes_written <= 0) {
             std::cerr << "failed to write command: " << std::strerror(errno) << std::endl;
@@ -201,8 +203,6 @@ void modem::hangup() {
     if(m_data->write_command("AT+CHUP\r\n") > 0) {
         m_data->call_in_progress = false;
         m_data->call_is_incoming = false;
-        m_data->call_ended_handler();
-        m_data->stop_audio();
     }
 }
 

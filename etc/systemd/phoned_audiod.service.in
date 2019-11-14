@@ -1,0 +1,10 @@
+[Unit]
+Description=phoned audio service
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned_audiod
+
+[Install]
+WantedBy=multi-user.target
