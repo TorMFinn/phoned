@@ -15,7 +15,10 @@ endif()
 
 find_package(PkgConfig)
 
-pkg_check_modules(GST REQUIRED gstreamer-1.0)
+add_executable(test_dialtone
+  src/bin/test_dialtone.cpp
+  src/lib/dialtone.cpp
+  )
 
 add_executable(phoned_audiod
   src/bin/audiod.cpp
@@ -43,16 +46,15 @@ add_library(libphoned
   src/lib/dial.cpp
   src/lib/ringer.cpp
   src/lib/modem.cpp
-  #src/lib/modem_audio.cpp
-  src/lib/modem_audio_sdl.cpp
-  #src/lib/modem_audio_asio.cpp
+  src/lib/modem_audio.cpp
   )
 
 target_link_libraries(libphoned
   ${GST_LIBRARIES}
   pthread
   systemd
-  SDL2
+  pulse-simple
+  pulse
   )
 
 target_include_directories(libphoned PUBLIC
@@ -61,6 +63,15 @@ target_include_directories(libphoned PUBLIC
 
 target_include_directories(libphoned PRIVATE
   ${GST_INCLUDE_DIRS}
+  )
+
+target_include_directories(test_dialtone PRIVATE
+  include
+  )
+
+target_link_libraries(test_dialtone
+  pulse-simple
+  pthread
   )
 
 target_link_libraries(phoned_audiod

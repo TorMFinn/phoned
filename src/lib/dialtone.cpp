@@ -1,28 +1,80 @@
 #include "phoned/dialtone.hpp"
-#include <gst/gst.h>
 #include <cmath>
 #include <iostream>
+#include <thread>
+#include <condition_variable>
+#include <mutex>
+#include <pulse/simple.h>
 
 using namespace phoned;
 
-const float m_2pi = 6.28318530;
+const float m_2pi = 2 * M_PI;
+const int audio_bufsize = 256;
 
 struct dialtone::Data {
-    GstElement *pipeline;
-
     Data() {
-        gst_init(nullptr, nullptr);
-        GError *error;
-        pipeline = gst_parse_launch("audiotestsrc freq=425 ! autoaudiosink", &error);
-        if (pipeline == nullptr) {
-            throw std::runtime_error("failed to create dialtone pipeline");
+        spec.channels = 1;
+        spec.format = PA_SAMPLE_S16NE;
+        spec.rate = 8000;
+        int error;
+
+        pa = pa_simple_new(nullptr,
+                           "phoned_audiod",
+                           PA_STREAM_PLAYBACK,
+                           nullptr,
+                           "dialtone",
+                           &spec,
+                           nullptr,
+                           nullptr,
+                           &error);
+        if (!pa) {
+            throw std::runtime_error("pulseaudio error: " + std::to_string(error));
         }
+
+        tone_thd = std::thread([&]() {
+            quit = false;
+            int16_t audio_buf[audio_bufsize];
+            float step = (m_2pi) / spec.rate;
+            float t = 0;
+            while (not quit) {
+                if (!enable_tone) {
+                    std::unique_lock lock(cv_mutex);
+                    tone_cv.wait(lock);
+                }
+                if (enable_tone) {
+                    for (int i = 0; i < audio_bufsize; i++) {
+                        audio_buf[i] = 32335 * sin(t * 420);
+                        t += step;
+                        if (t >= m_2pi) {
+                            t -= m_2pi;
+                        }
+                    }
+                    pa_simple_write(pa, audio_buf, audio_bufsize * 2, nullptr);
+                } else {
+                    pa_simple_flush(pa, nullptr);
+                }
+                if (quit) {
+                    break;
+                }
+            }
+        });
     }
 
     ~Data() {
-        gst_element_set_state(pipeline, GST_STATE_NULL);
-        gst_object_unref(GST_OBJECT(pipeline));
+        if (tone_thd.joinable()) {
+            tone_cv.notify_all();
+            tone_thd.join();
+        }
     }
+
+    pa_simple *pa;
+    pa_sample_spec spec;
+
+    std::thread tone_thd;
+    bool quit;
+    bool enable_tone;
+    std::condition_variable tone_cv;
+    std::mutex cv_mutex;
 };
 
 dialtone::dialtone()
@@ -33,9 +85,10 @@ dialtone::~dialtone() {
 }
 
 void dialtone::start() {
-    gst_element_set_state(m_data->pipeline, GST_STATE_PLAYING);
+    m_data->enable_tone = true;
+    m_data->tone_cv.notify_all();
 }
 
 void dialtone::stop() {
-    gst_element_set_state(m_data->pipeline, GST_STATE_PAUSED);
+    m_data->enable_tone = false;
 }
