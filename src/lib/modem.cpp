@@ -7,7 +7,7 @@
 #include <poll.h>
 #include <cstring>
 #include <thread>
-#include <iostream>
+#include <syslog.h>
 #include <mutex>
 
 using namespace phoned;
@@ -36,7 +36,7 @@ struct modem::Data {
                             bytes_read = read(serial_fd, buf, BUFSIZE);
                         }
                         if (bytes_read < 0) {
-                            std::cerr << "error reading from file descriptor: " << std::strerror(errno) << std::endl;
+                            syslog(LOG_ERR, "MODEM: error reading from file descriptor: %s", std::strerror(errno));
                             break;
                         } else if (bytes_read > 0) {
                             auto msg = std::string(buf, bytes_read);
@@ -60,7 +60,7 @@ struct modem::Data {
     }
 
     void handle_message(const std::string &msg) {
-        std::cout << "MESSAGE: \n" << msg << std::endl;
+        syslog(LOG_DEBUG, "MODEM: AT Receive: %s", msg.c_str());
         if (msg == "OK") {
             return;
         }
@@ -70,7 +70,7 @@ struct modem::Data {
                 call_is_incoming = true;
                 call_incoming_handler();
             } catch (const std::bad_function_call) {
-                std::cerr << "warning, no call_incoming handler is set" << std::endl;
+                syslog(LOG_ERR, "MODEM: no call_incoming handler is set");
             }
         } else if (msg.find("MISSED_CALL") != msg.npos) {
             try {
@@ -78,7 +78,7 @@ struct modem::Data {
                 call_is_incoming = false;
                 call_missed_handler();
             } catch (const std::bad_function_call) {
-                std::cerr << "warning, no call_missed handler is set" << std::endl;
+                syslog(LOG_ERR, "MODEM: no call_missed handler is set");
             }
         } else if (msg.find("BUSY") != msg.npos) {
             call_in_progress = false;
@@ -87,16 +87,16 @@ struct modem::Data {
             stop_audio();
         } else if (msg.find("VOICE CALL: END") != msg.npos) {
             try {
+                // Stops writing during the handler and allows the modem to be able to flush its buffers
                 call_in_progress = false;
                 call_is_incoming = false;
                 call_ended_handler();
                 voice_end_handler();
-                // Stops writing during the handler and allows the modem to be able to flush its buffers
-                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 stop_audio();
                 // Give time for audio to stop transfer
             } catch (const std::bad_function_call) {
-                std::cerr << "warning, no call_ended handler is set" << std::endl;
+                syslog(LOG_ERR, "MODEM: warning, no call_ended handler is set");
             }
         } else if (msg.find("VOICE CALL: BEGIN") != msg.npos) {
             try {
@@ -105,7 +105,7 @@ struct modem::Data {
                 call_started_handler();
                 voice_begin_handler();
             } catch (const std::bad_function_call) {
-                std::cerr << "warning, no call_started handler is set" << std::endl;
+                syslog(LOG_ERR, "MODEM: no call_started handler is set");
             }
         }
     }
@@ -117,25 +117,25 @@ struct modem::Data {
 
     bool start_audio() {
         if (not audio_started) {
-            std::cout << "Sending audio transfer request" << std::endl;
+            syslog(LOG_INFO, "MODEM: Sending audio transfer request");
             const std::string cmd = std::string("AT+CPCMREG=1\r\n");
             if (write_command(cmd) > 0) {
                 audio_started = true;
             }
         }
-        //std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         return audio_started;
     }
 
     bool stop_audio() {
         if (audio_started) {
-            std::cout << "Sending stop audio transfer request" << std::endl;
+            syslog(LOG_INFO, "Sending stop audio transfer request");
             const std::string cmd = std::string("AT+CPCMREG=0\r\n");
             if (write_command(cmd) > 0) {
                 audio_started = false;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(400));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         return !audio_started;
     }
 
@@ -144,10 +144,10 @@ struct modem::Data {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         std::scoped_lock lock(port_mutex);
-        std::cout << "Writing command: " << command << std::endl;
+        syslog(LOG_DEBUG, "MODEM: Writing command: %s", command.c_str());
         int bytes_written = write(serial_fd, command.c_str(), command.size());
         if (bytes_written <= 0) {
-            std::cerr << "failed to write command: " << std::strerror(errno) << std::endl;
+            syslog(LOG_ERR, "MODEM: failed to write command: %s", std::strerror(errno));
         }
         return bytes_written;
     }

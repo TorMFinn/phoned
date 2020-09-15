@@ -2,6 +2,7 @@ add_library(libphoned
   dialtone.cpp
   handset.cpp
   dial.cpp
+  device_detector.cpp
   ringer.cpp
   modem.cpp
   modem_audio.cpp
@@ -10,6 +11,7 @@ add_library(libphoned
 target_link_libraries(libphoned
   pthread
   systemd
+  usb-1.0
   pulse-simple
   pulse
   )

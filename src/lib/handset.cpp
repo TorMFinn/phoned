@@ -84,7 +84,7 @@ struct phoned::handset::Data {
     }
 
     handset_state value_to_state(int value) {
-        if (value == 0) {
+        if (value == 1) {
             return handset_state::down;
         }
 

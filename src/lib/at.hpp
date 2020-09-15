@@ -1,8 +1,11 @@
 #pragma once
 #include <vector>
 
-namespace phoned::at {
-    struct ATD {
-        std::string number;
+namespace phoned {
+    struct at_cmd_t {
+        std::string type;
+    };
+
+    class parser {
     };
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description=phoned modem service
+After=ModemManager.service
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned-modemd
+
+[Install]
+WantedBy=multi-user.target

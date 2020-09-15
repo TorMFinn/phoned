@@ -1,0 +1,176 @@
+#include "phoned/modem_audio.hpp"
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <thread>
+#include <mutex>
+#include <cstring>
+#include <iostream>
+#include <atomic>
+#include <queue>
+
+#include <pulse/simple.h>
+#include <pulse/error.h>
+
+using namespace phoned;
+
+struct modem_audio::Data {
+    Data(const std::string &device, int baud) {
+        serial_device = device;
+        baudrate = baud;
+    }
+
+    ~Data() {
+        close_serial();
+    }
+
+    void close_serial() {
+        // Wo don't say quit, because we need read to return 0 first
+        std::cout << "Closing serial port" << std::endl;
+        quit=true;
+        if (read_thd.joinable()) {
+            read_thd.join();
+        }
+
+        int r = close(serial_fd);
+        if (r < 0) {
+            std::cerr << "failed to close serial fd: " << std::strerror(errno) << std::endl;
+        }
+        std::cout << "closed port" << std::endl;
+    }
+
+    void start_serial() {
+        if (transfer_started) {
+            // Serial is allready started
+            return;
+        }
+        open_serial();
+        read_thd = std::thread([this]() {
+            transfer_started = true;
+            struct pollfd fds[1];
+            fds[0].fd = serial_fd;
+            fds[0].events = POLLIN | POLLOUT;
+
+            pa_simple_flush(pa_play, nullptr);
+            pa_simple_flush(pa_record, nullptr);
+
+            quit = false;
+            while(!quit) {
+                int r = poll(fds, 1, 500);
+                if (r > 0) {
+                    if (fds[0].revents & POLLIN) {
+                        uint8_t buf[bufsize];
+                        int bytes_read = read(serial_fd, buf, bufsize);
+                        if (bytes_read > 0) {
+                            pa_simple_write(pa_play, buf, bytes_read, nullptr);
+                        }
+                    }
+                    if (fds[0].revents & POLLOUT) {
+                        std::cout << "Want data" << std::endl;
+                        uint8_t buf[bufsize];
+                        pa_simple_flush(pa_record, nullptr);
+                        if(pa_simple_read(pa_record, buf, bufsize, nullptr) >= 0) {
+                            int written = write(serial_fd, buf, bufsize);
+                            std::cout << "wrote: " << written << std::endl;
+                        }
+                    }
+                } else if (r < 0) {
+                    std::cerr << "poll error: " << std::strerror(errno) << std::endl;
+                }
+            }
+            transfer_started = false;
+        });
+
+        pa_simple_flush(pa_play, nullptr);
+        pa_simple_flush(pa_record, nullptr);
+    }
+
+    void open_serial() {
+        std::cout << "Opening serial" << std::endl;
+        int ret;
+        serial_fd = open(serial_device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+        if (serial_fd == -1) {
+            throw std::runtime_error(std::string("failed to open serial device: ") + std::strerror(errno));
+        }
+
+        struct termios config;
+        cfmakeraw(&config);
+        ret = cfsetspeed(&config, baudrate);
+        if (ret < 0) {
+            throw std::runtime_error(std::string("failed to set baudrate: ") + std::strerror(errno));
+        }
+
+        ret = tcsetattr(serial_fd, TCSANOW, &config);
+        if (ret < 0) {
+            throw std::runtime_error(std::string("failed to set termios config: ") + std::strerror(errno));
+        }
+    }
+
+    void init_pulseaudio() {
+        ss.channels = 1;
+        ss.format = PA_SAMPLE_S16LE;
+        ss.rate = 8000;
+
+        pa_play = pa_simple_new(nullptr, "modem_audio_playback", PA_STREAM_PLAYBACK, nullptr, "Playback", &ss, nullptr, nullptr, nullptr);
+        if (!pa_play) {
+            throw std::runtime_error("failed to create playback device");
+        }
+        pa_record = pa_simple_new(nullptr, "modem_audio_playback", PA_STREAM_RECORD, nullptr, "Record", &ss, nullptr, nullptr, nullptr);
+        if (!pa_record) {
+            throw std::runtime_error("failed to create record device");
+        }
+
+        bufsize = pa_usec_to_bytes(20000, &ss);
+        std::cout << "bufsize is: " << bufsize << std::endl;
+    }
+
+    bool start_voice_transfer = false;
+    bool transfer_started = false;
+    bool quit;
+    int serial_fd;
+    int baudrate;
+    std::string serial_device;
+    std::thread read_thd;
+
+    std::size_t bufsize;
+
+    pa_simple *pa_record;
+    pa_simple *pa_play;
+    pa_sample_spec ss;
+};
+
+modem_audio::modem_audio(const std::string &device, int baudrate) 
+: m_data(new Data(device, baudrate)) {
+    m_data->init_pulseaudio();
+
+    std::thread([this]() {
+        uint8_t buf[m_data->bufsize];
+        while(1) {
+            pa_simple_flush(m_data->pa_record, nullptr);
+            pa_simple_flush(m_data->pa_play, nullptr);
+            pa_simple_read(m_data->pa_record, buf, m_data->bufsize, nullptr);
+            pa_simple_write(m_data->pa_play, buf, m_data->bufsize, nullptr);
+        }
+    }).detach();
+}
+
+modem_audio::~modem_audio() {
+    m_data->close_serial();
+}
+
+void modem_audio::start_voice_transfer() {
+    m_data->start_voice_transfer = true;
+}
+
+void modem_audio::stop_voice_transfer() {
+    m_data->start_voice_transfer = false;
+}
+
+void modem_audio::start_transfer() {
+    m_data->start_serial();
+}
+
+void modem_audio::stop_transfer() {
+    m_data->close_serial();
+}
