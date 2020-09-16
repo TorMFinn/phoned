@@ -10,130 +10,165 @@
 #include <iostream>
 #include <mutex>
 #include <chrono>
+#include <syslog.h>
 
 using namespace phoned;
 
 const int GPIO_DIAL_ENABLE = 17;
 const int GPIO_DIAL_COUNT = 27;
 
+using namespace std::chrono;
+
 struct dial::Data {
-
-
-  Data() {
-    init_gpio();
     
-    enable_read_thd = std::thread([this]() {
-      while(not quit_read) {
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
-	auto raw_enable_pin_state = read_enable_raw();
-	std::cout << "Enable raw state: " << std::boolalpha << raw_enable_pin_state << std::endl;
-	/*
-	  auto count_enabled_raw = read_enable_raw();
-	  auto now = std::chrono::steady_clock::now();
-	  {
-	  if (count_enabled_raw && not enable_is_active) {
-	  // Enable event reading
-	  std::scoped_lock lock(enable_mutex);
-	  enable_is_active = true;
-	  } else if (data.values[0] == 1 && enable_is_active) {
-                        enable_is_active = false;
-                        if (counted_value != 0) {
-			if (counted_value >= 10) {
-			counted_value = 0;
-			}
-			std::cout << "Counted value: " << counted_value << std::endl;
-			digit_entered_callback(counted_value);
-			time_last_input = now;
-			number_buffer += std::to_string(counted_value);
-			counted_value = 0;
-                        }
-			}
-			}
-			if (std::chrono::duration_cast<std::chrono::seconds>(now - time_last_input).count() >= 4 && data.values[0] == 0) {
-			if (not number_buffer.empty()) {
-                        number_entered_callback(number_buffer);
-                        number_buffer.clear();
-			}
-			}
-	*/
-      }
-    });
-  }
-  
-  void handle_count_pin_toggled(bool state) {
-  }
-  
-  void handle_count_enabled_pin(bool pin_state_active) {
-    enable_is_active = pin_state_active;
-  }
-  
-  
-  bool read_count_raw() {
-    struct gpiohandle_data data;
-    int r = ioctl(dial_count_req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
-    if (r < 0) {
-      syslog(LOG_ERR, "DIAL: failed to read count pin: %s", std::strerror(-r));
-      return false;
+    ~Data() {
+        quit_read = true;
+        if (enable_read_thd.joinable()) {
+            enable_read_thd.join();
+        }
+        if (count_read_thd.joinable()) {
+            count_read_thd.join();
+        }
     }
-    // Active Low
-    return data.values[0] == 0;
-  }
-  
-  bool read_enable_raw() {
-    struct gpiohandle_data data;
-    int r = ioctl(dial_enable_req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
-    if (r < 0) {
-      syslog(LOG_ERR, "DIAL: failed to read count pin: %s", std::strerror(-r));
-      return false;
-    }
-    // Active Low
-    return data.values[0] == 0;
-  }
-  
-  count_read_thd = std::thread([this]() {
-    while(not quit_read) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      /*
-	switch(event.id) {
-	case GPIOEVENT_EVENT_FALLING_EDGE:
-	{
-	if (debounce_mutex.try_lock()) {
-	std::thread([&](){
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
-	debounce_mutex.unlock();
-	std::scoped_lock lock(enable_mutex);
-	if (enable_is_active) {
-	counted_value++;
-	}
-	}).detach();
-	}
-	break;
-	}
-	default:
-	std::cout << "Some other event:" << std::endl;
-	break;
-	}
-      */
-    }
-  });
-} 
-  
-  ~Data() {
-    quit_read = true;
-    if (enable_read_thd.joinable()) {
-      enable_read_thd.join();
-    }
-    if (count_read_thd.joinable()) {
-      count_read_thd.join();
-    }
-  }
+    
+    
+    Data() {
+        init_gpio();
+        
+        enable_read_thd = std::thread([this]() {
+            while(not quit_read) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                auto enable_count_state = read_enable_raw();
+                if (enable_count_state) {
+                    do_counting = true;
+                } else if (!enable_count_state && do_counting) {
+                    do_counting = false;
+                    std::cout << "counted value: " << counted_digit << std::endl;
+                    update_number(counted_digit);
+                    time_since_last_digit = steady_clock::now();
+                    counted_digit = 0;
+                } else if (!enable_count_state) {
+                    if (duration_cast<seconds>(steady_clock::now() - time_since_last_digit) >= 4s) {
+                        finish_number();
+                    }
+                }
+            }
+        });
 
+        count_read_thd = std::thread([this]() {
+            bool current_pin_state = false;
+            bool prev_pin_state = false;
+            bool dial_state = true;
+            bool prev_dial_state = false;
+            time_point<high_resolution_clock> time_last_change;
+            while(not quit_read) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                current_pin_state = read_count_raw();
+                if (current_pin_state != prev_pin_state) {
+                    time_last_change = high_resolution_clock::now();
+                }
+
+                if (duration_cast<milliseconds>(high_resolution_clock::now() - time_last_change) > 5ms) {
+                    if (dial_state != current_pin_state) {
+                        dial_state = current_pin_state;
+                        if (dial_state) {
+                            if (do_counting) {
+                                counted_digit++;
+                            }
+                        }
+                    }
+                }
+
+                prev_pin_state = current_pin_state;
+            }
+        });
+    }
+
+    void update_number(int digit) {
+        if (digit == 0) {
+            // Not valid input
+            // means we activated count but did not do a digit entry
+            return;
+        } else if (digit == 10) {
+            // 10 counts represents the 0 on the dial.
+            digit = 0;
+        }
+        std::thread([&,digit](){
+            try {
+                digit_entered_callback(digit);
+            } catch (...) {}
+        }).detach();
+        number_buffer += std::to_string(digit);
+    }
+
+    void finish_number() {
+        if (!number_buffer.empty()) {
+            std::cout << "number is: " << number_buffer << std::endl;
+            try {
+                number_entered_callback(number_buffer);
+            } catch (...) {}
+            number_buffer.clear();
+        }
+    }
+
+    bool debounce_low() {
+        int low_counts = 0;
+        for (int i=0; i < 10; i++) {
+            if (!read_count_raw()) {
+                low_counts++;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        //std::cout << "low counts: " << low_counts << std::endl;
+        if (low_counts >= 1) {
+            return true;
+        }
+        return false;
+    }
+
+    bool debounce_high() {
+        int high_counts = 0;
+        for (int i=0; i < 10; i++) {
+            if (read_count_raw()) {
+                high_counts++;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        //std::cout << "high counts" << high_counts << std::endl;
+        if (high_counts > 5) {
+            return true;
+        }
+        return false;
+    }
+    
+    bool read_count_raw() {
+        struct gpiohandle_data data;
+        int r = ioctl(dial_count_req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+        if (r < 0) {
+            syslog(LOG_ERR, "DIAL: failed to read count pin: %s", std::strerror(-r));
+            return false;
+        }
+        // Active Low
+        return data.values[0] == 0;
+    }
+    
+    bool read_enable_raw() {
+        struct gpiohandle_data data;
+        int r = ioctl(dial_enable_req.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+        if (r < 0) {
+            syslog(LOG_ERR, "DIAL: failed to read count pin: %s", std::strerror(-r));
+            return false;
+        }
+        // Active Low
+        return data.values[0] == 0;
+    }
+    
     void init_gpio() {
         gpio_fd = open("/dev/gpiochip0", 0);
         if (gpio_fd == -1) {
             throw std::runtime_error(std::string("failed to open gpiochip0: ") + std::strerror(errno));
         }
-
+        
         int r;
         dial_enable_req.lineoffset = GPIO_DIAL_ENABLE;
         dial_enable_req.handleflags = GPIOHANDLE_REQUEST_INPUT;
@@ -157,28 +192,25 @@ struct dial::Data {
     struct gpioevent_request dial_enable_req;
     struct gpioevent_request dial_count_req;
     std::string number_buffer;
+    time_point<steady_clock> time_since_last_digit;
 
     std::function<void (const std::string&)> number_entered_callback;
     std::function<void (int)> digit_entered_callback;
 
     int gpio_fd;
     int count_pin_fd;
-    int counted_value;
+    int counted_digit;
     std::thread enable_read_thd;
     std::thread count_read_thd;
-    std::mutex enable_mutex;
-    std::mutex debounce_mutex;
     bool quit_read;
     bool do_counting;
-    std::chrono::time_point<std::chrono::steady_clock> time_last_input;
 };
 
 dial::dial() 
-: m_data(new Data()) {
+    : m_data(new Data()) {
 }
 
 dial::~dial() {
-
 }
 
 void dial::set_number_entered_callback(std::function<void (const std::string&)> callback) {
