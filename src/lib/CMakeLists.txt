@@ -1,7 +1,6 @@
 add_library(libphoned
   handset.cpp
   dial.cpp
-  device_detector.cpp
   ringer.cpp
   modem.cpp
   )
