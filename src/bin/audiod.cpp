@@ -1,5 +1,4 @@
 #include "phoned/dialtone.hpp"
-#include "phoned/modem_audio.hpp"
 #include <systemd/sd-bus-vtable.h>
 #include <systemd/sd-bus.h>
 #include <csignal>
@@ -17,7 +16,6 @@
 sd_event *event;
 
 struct program_state {
-    phoned::modem_audio modem_audio;
     phoned::dialtone dialtone;
 
     program_state()
@@ -44,25 +42,25 @@ static int handle_stop_dialtone(sd_bus_message* m, void *userdata, sd_bus_error 
 
 static int handle_call_started(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     program_state *state = reinterpret_cast<program_state*>(userdata);
-    state->modem_audio.start_transfer();
+    //state->modem_audio.start_transfer();
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
 static int handle_call_ended(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     program_state *state = reinterpret_cast<program_state*>(userdata);
-    state->modem_audio.stop_transfer();
+    //state->modem_audio.stop_transfer();
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
 static int handle_voice_begin(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     program_state *state = reinterpret_cast<program_state*>(userdata);
-    state->modem_audio.start_voice_transfer();
+    //state->modem_audio.start_voice_transfer();
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
 static int handle_voice_end(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     program_state *state = reinterpret_cast<program_state*>(userdata);
-    state->modem_audio.stop_voice_transfer();
+    //state->modem_audio.stop_voice_transfer();
     return sd_bus_reply_method_return(m, "", nullptr);
 }
 
