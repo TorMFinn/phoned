@@ -5,14 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/ext/sanitizers-cmake/cmake" ${CMAKE_MOUDLE_PATH})
-find_package(Sanitizers)
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
-  message(STATUS "Enabling address sanitizers")
-  set(SANITIZE_ADDRESS ON)
-  set(SANITIZE_UNDEFINED ON)
-endif()
-
 # Use CCACHE if it is installed
 find_program(CCACHE_PROGRAM ccache)
 if (CCACHE_PROGRAM)
