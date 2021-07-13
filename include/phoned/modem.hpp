@@ -15,6 +15,7 @@ namespace phoned {
         bool call_in_progress();
         bool call_incoming();
         bool has_dialtone();
+	void start_dialtone();
 
         void set_call_incoming_handler(std::function <void ()> handler);
         void set_call_missed_handler(std::function <void ()> handler);

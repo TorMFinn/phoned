@@ -3,7 +3,10 @@
 #include <termios.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
+#include <linux/gpio.h>
 #include <fcntl.h>
+#include <iostream>
 #include <poll.h>
 #include <cstring>
 #include <thread>
@@ -13,10 +16,14 @@
 using namespace phoned;
 
 const int BUFSIZE = 1024;
+const int MODEM_PWR_PIN = 6;
+const int MODEM_FLIGHT_MODE_PIN = 4;
 
 struct modem::Data {
     Data(const std::string &serial_device, int baudrate) {
         init_serial(serial_device, baudrate);
+        init_gpio();
+        power_modem();
 
         read_thd = std::thread([this]() {
             int ret;
@@ -59,6 +66,86 @@ struct modem::Data {
         close(serial_fd);
     }
 
+    void init_gpio() {
+        gpio_fd = open("/dev/gpiochip0", 0);
+        if (gpio_fd == -1) {
+            throw std::runtime_error(
+                std::string("failed to open gpiochip0: ") + std::strerror(errno));
+        }
+
+        modem_pwr_ctrl.lineoffset = MODEM_PWR_PIN;
+        modem_pwr_ctrl.handleflags = GPIOHANDLE_REQUEST_OUTPUT;
+        strcpy(modem_pwr_ctrl.consumer_label, "phoned-modemd");
+        modem_flight_ctrl.lineoffset = MODEM_FLIGHT_MODE_PIN;
+        modem_flight_ctrl.handleflags = GPIOHANDLE_REQUEST_OUTPUT;
+        strcpy(modem_flight_ctrl.consumer_label, "phoned-modemd");
+        int r = ioctl(gpio_fd, GPIO_GET_LINEHANDLE_IOCTL, &modem_pwr_ctrl);
+        if (r < 0) {
+            throw std::runtime_error(
+                std::string("failed to get modem_pwr linehandle: ") +
+                std::strerror(errno));
+        }
+        r = ioctl(gpio_fd, GPIO_GET_LINEHANDLE_IOCTL, &modem_flight_ctrl);
+        if (r < 0) {
+            throw std::runtime_error(
+                std::string("failed to get modem_flight linehandle: ") +
+                std::strerror(errno));
+        }
+    }
+
+    void power_modem() {
+        struct gpiohandle_data pwr_data;
+        struct gpiohandle_data flightmode_data;
+        int r = ioctl(modem_pwr_ctrl.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &pwr_data);
+        if (r < 0) {
+            std::cerr << "Failed to get line value modem_pwr" << std::endl;
+        }
+        // Setting low enables the modem
+        pwr_data.values[0] = 0;
+        r = ioctl(modem_pwr_ctrl.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &pwr_data);
+        if (r < 0) {
+            std::cout << "failed to set modem pwr ioctl" << std::endl;
+        } else {
+            std::cout << "enabled modem pwr" << std::endl;
+        }
+
+        r = ioctl(modem_flight_ctrl.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &flightmode_data);
+        if (r < 0) {
+            std::cerr << "Failed to get line value flightmode" << std::endl;
+        }
+
+        flightmode_data.values[0] = 0;
+        r = ioctl(modem_flight_ctrl.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &flightmode_data);
+        if (r < 0) {
+            std::cout << "failed to set modem flightmode ioctl" << std::endl;
+        } else {
+            std::cout << "disabled flightmode" << std::endl;
+        }
+
+        while(!write_command("AT\r\n", "OK"));
+        std::cout << "Modem powered" << std::endl;
+    }
+
+    bool write_command(std::string cmd, std::string expected_response) {
+        int bytes_written = write(serial_fd, cmd.c_str(), cmd.size());
+        if (bytes_written < 0) {
+            std::cerr << "failed to write: " << cmd << std::strerror(errno) << std::endl;
+            return false;
+        }
+        
+        char buf[256];
+        int bytes_read = read(serial_fd, &buf, 256);
+        if (bytes_read > 0) {
+            std::string rsp(buf, bytes_read);
+            if (rsp.find(expected_response) != rsp.npos) {
+                return true;
+            }
+        } else {
+            std::cerr << "failed to read: " << std::strerror(errno) << std::endl;
+        }
+        return false;
+    }
+
     void handle_message(const std::string &msg) {
         syslog(LOG_DEBUG, "MODEM: AT Receive: %s", msg.c_str());
         if (msg == "OK") {
@@ -83,8 +170,6 @@ struct modem::Data {
         } else if (msg.find("BUSY") != msg.npos) {
             call_in_progress = false;
             call_ended_handler();
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            stop_audio();
         } else if (msg.find("VOICE CALL: END") != msg.npos) {
             try {
                 // Stops writing during the handler and allows the modem to be able to flush its buffers
@@ -92,16 +177,12 @@ struct modem::Data {
                 call_is_incoming = false;
                 call_ended_handler();
                 voice_end_handler();
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                stop_audio();
-                // Give time for audio to stop transfer
             } catch (const std::bad_function_call) {
                 syslog(LOG_ERR, "MODEM: warning, no call_ended handler is set");
             }
         } else if (msg.find("VOICE CALL: BEGIN") != msg.npos) {
             try {
                 call_in_progress = true;
-                start_audio();
                 call_started_handler();
                 voice_begin_handler();
             } catch (const std::bad_function_call) {
@@ -113,30 +194,6 @@ struct modem::Data {
     bool dial_number(const std::string &number) {
         const std::string cmd = std::string("ATD" + number + ";\r\n");
         return write_command(cmd) > 0;
-    }
-
-    bool start_audio() {
-        if (not audio_started) {
-            syslog(LOG_INFO, "MODEM: Sending audio transfer request");
-            const std::string cmd = std::string("AT+CPCMREG=1\r\n");
-            if (write_command(cmd) > 0) {
-                audio_started = true;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        return audio_started;
-    }
-
-    bool stop_audio() {
-        if (audio_started) {
-            syslog(LOG_INFO, "Sending stop audio transfer request");
-            const std::string cmd = std::string("AT+CPCMREG=0\r\n");
-            if (write_command(cmd) > 0) {
-                audio_started = false;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        return !audio_started;
     }
 
     ssize_t write_command(const std::string &command) {
@@ -186,6 +243,11 @@ struct modem::Data {
     std::function <void ()> call_started_handler;
     std::function <void ()> voice_begin_handler;
     std::function <void ()> voice_end_handler;
+
+    // modem power controls
+    int gpio_fd;
+    struct gpioevent_request modem_pwr_ctrl;
+    struct gpioevent_request modem_flight_ctrl;
 };
 
 modem::modem(const std::string &serial_device, int baudrate) 
@@ -198,7 +260,6 @@ modem::~modem() = default;
 void modem::dial(const std::string &number) {
     if(m_data->dial_number(number)) {
         m_data->call_in_progress = true;
-        m_data->start_audio();
         // Call now so that audiod will get the signal to start audio transfer
         m_data->call_started_handler();
     }
