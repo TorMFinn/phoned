@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <thread>
-#include <iostream>
 #include <mutex>
 #include <chrono>
 #include <syslog.h>
@@ -43,7 +42,6 @@ struct dial::Data {
                     do_counting = true;
                 } else if (!enable_count_state && do_counting) {
                     do_counting = false;
-                    std::cout << "counted value: " << counted_digit << std::endl;
                     update_number(counted_digit);
                     time_since_last_digit = steady_clock::now();
                     counted_digit = 0;
@@ -103,7 +101,6 @@ struct dial::Data {
 
     void finish_number() {
         if (!number_buffer.empty()) {
-            std::cout << "number is: " << number_buffer << std::endl;
             try {
                 number_entered_callback(number_buffer);
             } catch (...) {}
@@ -119,7 +116,6 @@ struct dial::Data {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
-        //std::cout << "low counts: " << low_counts << std::endl;
         if (low_counts >= 1) {
             return true;
         }
@@ -134,7 +130,6 @@ struct dial::Data {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
-        //std::cout << "high counts" << high_counts << std::endl;
         if (high_counts > 5) {
             return true;
         }

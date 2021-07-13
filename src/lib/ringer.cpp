@@ -31,6 +31,7 @@ struct ringer::Data {
         set_output_value(0);
     }
     ~Data() {
+        stop_ringing();
         close(gpio_fd);
     }
 
@@ -42,11 +43,13 @@ struct ringer::Data {
         if (ret == -1) {
             std::cerr << "failed to set ringer output value" << std::endl;
         }
-
     }
 
     void start_ringing() {
         if (not ringing) {
+            if (ringer_thd.joinable()) {
+                return;
+            }
             ringer_thd = std::thread([this]() {
                 ringing = true;
                 while(ringing) {
@@ -92,7 +95,7 @@ struct ringer::Data {
     int gpio_fd;
     struct gpiohandle_request ringer_output_request;
     std::thread ringer_thd;
-    bool ringing;
+    bool ringing = false;
 };
 
 ringer::ringer() 

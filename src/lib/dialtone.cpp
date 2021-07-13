@@ -4,6 +4,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <pulse/simple.h>
+#include <iostream>
 
 using namespace phoned;
 
@@ -40,6 +41,9 @@ struct dialtone::Data {
                     std::unique_lock lock(cv_mutex);
                     tone_cv.wait(lock);
                 }
+                if (quit) {
+                    break;
+                }
                 if (enable_tone) {
                     for (int i = 0; i < audio_bufsize; i++) {
                         audio_buf[i] = 32335 * sin(t * 420);
@@ -52,15 +56,13 @@ struct dialtone::Data {
                 } else {
                     pa_simple_flush(pa, nullptr);
                 }
-                if (quit) {
-                    break;
-                }
             }
         });
     }
 
     ~Data() {
         if (tone_thd.joinable()) {
+            quit = true;
             tone_cv.notify_all();
             tone_thd.join();
         }

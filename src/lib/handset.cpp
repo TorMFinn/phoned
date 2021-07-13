@@ -16,7 +16,7 @@
 using namespace phoned;
 
 const char *gpio_device = "/dev/gpiochip0";
-const int handset_gpio_num = 14;
+const int handset_gpio_num = 13;
 
 struct phoned::handset::Data {
     // This is the default gpio for the handset
@@ -84,7 +84,7 @@ struct phoned::handset::Data {
     }
 
     handset_state value_to_state(int value) {
-        if (value == 1) {
+        if (value == 0) {
             return handset_state::down;
         }
 
