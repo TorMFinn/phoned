@@ -1,12 +1,14 @@
 add_library(libphoned
   handset.cpp
   dial.cpp
+  dialtone.cpp
   ringer.cpp
   modem.cpp
   )
 
-target_link_libraries(libphoned
+target_link_libraries(libphoned PRIVATE
   pthread
+  ${pulseaudio_LIBRARIES}
   )
 
 target_include_directories(libphoned PUBLIC
