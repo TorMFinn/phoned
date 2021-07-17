@@ -7,7 +7,6 @@ add_library(libphoned
 
 target_link_libraries(libphoned
   pthread
-  systemd
   )
 
 target_include_directories(libphoned PUBLIC
