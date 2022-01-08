@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(cmake/options.cmake)
 include(cmake/dependencies.cmake)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/ext/sanitizers-cmake/cmake" ${CMAKE_MOUDLE_PATH})
@@ -23,11 +24,7 @@ if (CCACHE_PROGRAM)
   set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
 endif()
 
-# Add SDBUS-CPP dependency from kistler-group
-#add_subdirectory(ext/sdbus-cpp)
-
 add_subdirectory(src/lib)
-
 add_subdirectory(src/bin)
 
 include(etc/install.cmake)

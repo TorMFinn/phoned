@@ -1,24 +1,28 @@
 #pragma once
-#include <memory>
 #include <functional>
+#include <memory>
 
 namespace phoned {
-    class handset {
-    public:
-        handset();
-        ~handset();
 
-        enum class handset_state {
-            lifted,
-            down
-        };
+enum class HandsetState
+{
+    lifted,
+    down
+};
 
-        void set_handset_state_changed_callback(std::function<void (handset_state)> callback);
+class Handset {
+  public:
+    Handset();
+    ~Handset();
 
-        handset_state get_state();
+    using HandsetStateChangedHandler = std::function<void(HandsetState)>;
 
-    private:
-        struct Data;
-        std::unique_ptr<Data> m_data;
-    };
-}
+    void SetHandsetStateChangedHandler(HandsetStateChangedHandler handler);
+
+    HandsetState get_state();
+
+  private:
+    struct Data;
+    std::unique_ptr<Data> m_data;
+};
+} // namespace phoned

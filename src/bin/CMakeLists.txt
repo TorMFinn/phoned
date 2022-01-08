@@ -8,6 +8,14 @@ target_link_libraries(phoned PRIVATE
   libphoned
   )
 
+add_executable(phonectl
+  phonectl.cpp
+  )
+
+target_link_libraries(phonectl
+  libphoned
+)
+
 add_sanitizers(
   phoned
 )

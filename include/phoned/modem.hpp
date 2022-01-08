@@ -3,26 +3,36 @@
 #include <functional>
 
 namespace phoned {
-    class modem {
+
+    enum class ModemEvent {
+        CALL_INCOMING,
+        CALL_MISSED,
+        CALL_ENDED,
+        CALL_STARTED,
+        SMS_RECEIVED,
+        MMS_RECEIVED
+    };
+
+    struct CallEventData {
+        std::string number;
+    };
+
+    using ModemEventHandler = std::function<void (ModemEvent, void*)>;
+
+    class Modem {
         public:
-        modem(const std::string &serial_device, int baudrate);
-        ~modem();
+        Modem(const std::string &serial_device, int baudrate);
+        ~Modem();
 
-        void dial(const std::string &number);
-        void hangup();
-        void answer_call();
+        void Dial(const std::string &number);
+        void Hangup();
+        void AnswerCall();
 
-        bool call_in_progress();
-        bool call_incoming();
-        bool has_dialtone();
-	void start_dialtone();
+        bool CallInProgress();
+        bool CallIncoming();
+        bool HasDialtone();
 
-        void set_call_incoming_handler(std::function <void ()> handler);
-        void set_call_missed_handler(std::function <void ()> handler);
-        void set_call_ended_handler(std::function <void ()> handler);
-        void set_call_started_handler(std::function <void ()> handler);
-        void set_voice_call_begin_handler(std::function<void ()> handler);
-        void set_voice_call_end_handler(std::function<void ()> handler);
+        void SetModemEventHandler(ModemEventHandler handler);
 
         private:
         struct Data;

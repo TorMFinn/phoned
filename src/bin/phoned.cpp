@@ -1,10 +1,12 @@
 #include "phoned/dial.hpp"
 #include "phoned/dialtone.hpp"
 #include "phoned/handset.hpp"
+#include "phoned/modem.hpp"
 
 #include <chrono>
 #include <csignal>
 #include <iostream>
+#include <memory>
 #include <thread>
 
 using namespace phoned;
@@ -16,35 +18,64 @@ void sighandler(int signum) {
         quit = true;
 }
 
-void handle_handset_state(dialtone &tone, handset::handset_state state) {
-    if (state == handset::handset_state::down) {
+void handle_handset_state(Dialtone &tone, HandsetState state) {
+    if (state == HandsetState::down) {
         std::cout << "Down" << std::endl;
-        tone.stop();
+        tone.Stop();
     } else {
         std::cout << "lifted" << std::endl;
-        tone.start();
+        tone.Start();
     }
 }
 
-void handle_digit_endered(int digit) {
-    // TODO: Forward this to the modem.
-    (void)digit;
+void dial_handler(DialEvent event, void *event_data) {
+    switch (event) {
+    case DialEvent::DIGIT_ENTERED: {
+        auto data = reinterpret_cast<DigitEnteredData *>(event_data);
+        std::cout << "Digit entered: " << data->digit << std::endl;
+    } break;
+    case DialEvent::NUMBER_ENTERED: {
+        auto number = reinterpret_cast<NumberEnteredData *>(event_data);
+        std::cout << "Number entered: " << number->number << std::endl;
+        break;
+    }
+    }
 }
 
-void handle_number_entered(std::string number) {
-    std::cout << "Number entered: " << number << std::endl;
+void modem_handler(ModemEvent event, void *event_data) {
+    switch (event) {
+    case ModemEvent::CALL_INCOMING:
+        std::cout << "Call incoming" << std::endl;
+        break;
+    case ModemEvent::CALL_MISSED:
+        std::cout << "Call missed" << std::endl;
+        break;
+    case ModemEvent::CALL_ENDED:
+        std::cout << "Call ended" << std::endl;
+        break;
+    case ModemEvent::CALL_STARTED:
+        std::cout << "Call Started" << std::endl;
+        break;
+    case ModemEvent::MMS_RECEIVED:
+        std::cout << "MMS Received" << std::endl;
+        break;
+    case ModemEvent::SMS_RECEIVED:
+        std::cout << "SMS Received" << std::endl;
+        break;
+    }
 }
 
 int main(int argc, char **argv) {
     // Init phone components
-    handset handset;
-    dial dial;
-    dialtone tone;
+    Handset handset;
+    Dial dial;
+    Dialtone tone;
 
-    handset.set_handset_state_changed_callback(
-        [&](handset::handset_state state) { handle_handset_state(tone, state); });
+    handset.SetHandsetStateChangedHandler([&](HandsetState state) {
+        handle_handset_state(tone, state);
+    });
 
-    dial.set_digit_entered_callback(handle_digit_endered);
+    dial.SetDialEventHandler(dial_handler);
 
     std::signal(SIGINT, sighandler);
     std::signal(SIGTERM, sighandler);

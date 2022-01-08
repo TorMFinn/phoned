@@ -1,16 +1,16 @@
 #include <memory>
 
 namespace phoned {
-class dialtone {
+class Dialtone {
 public:
-  dialtone();
-  ~dialtone();
+  Dialtone();
+  ~Dialtone();
 
   // Start the dialtone signal
-  void start();
+  void Start();
 
   // Stop the dialtone signal
-  void stop();
+  void Stop();
 
 private:
   struct Data;

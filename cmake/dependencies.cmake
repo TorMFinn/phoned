@@ -1,6 +1,12 @@
 # List of dependencies required for the project
 
-find_library(pulseaudio_LIBRARY pulse REQUIRED)
-find_library(pulseaudio_simple_LIBRARY pulse-simple REQUIRED)
+include(FindPkgConfig)
 
-set(pulseaudio_LIBRARIES ${pulseaudio_LIBRARY} ${pulseaudio_simple_LIBRARY})
+find_package(SQLiteCpp REQUIRED)
+find_package(Boost REQUIRED)
+
+pkg_check_modules(SDL2 sdl2 REQUIRED)
+
+if (PHONED_TESTING)
+  find_package(GTest REQUIRED)
+endif()

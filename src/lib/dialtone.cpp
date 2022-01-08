@@ -10,7 +10,7 @@ using namespace phoned;
 const float m_2pi = 2 * M_PI;
 const int audio_bufsize = 256;
 
-struct dialtone::Data {
+struct Dialtone::Data {
     Data() {
         spec.channels = 1;
         spec.format = PA_SAMPLE_S16NE;
@@ -76,18 +76,18 @@ struct dialtone::Data {
     std::mutex cv_mutex;
 };
 
-dialtone::dialtone()
+Dialtone::Dialtone()
     : m_data(new Data()) {
 }
 
-dialtone::~dialtone() {
+Dialtone::~Dialtone() {
 }
 
-void dialtone::start() {
+void Dialtone::Start() {
     m_data->enable_tone = true;
     m_data->tone_cv.notify_all();
 }
 
-void dialtone::stop() {
+void Dialtone::Stop() {
     m_data->enable_tone = false;
 }

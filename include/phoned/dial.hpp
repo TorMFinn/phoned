@@ -1,18 +1,30 @@
 #pragma once
-#include <memory>
 #include <functional>
+#include <memory>
 
 namespace phoned {
-    class dial {
-        public:
-        dial();
-        ~dial();
 
-        void set_number_entered_callback(std::function<void (const std::string&)> callback);
-        void set_digit_entered_callback(std::function<void (int)> callback);
+enum class DialEvent { NUMBER_ENTERED, DIGIT_ENTERED };
 
-        private:
-        struct Data;
-        std::unique_ptr<Data> m_data;
-    };
-}
+struct NumberEnteredData {
+  std::string number;
+};
+
+struct DigitEnteredData {
+  int digit;
+};
+
+using DialEventHandler = std::function<void(DialEvent, void *)>;
+
+class Dial {
+public:
+  Dial();
+  ~Dial();
+
+  void SetDialEventHandler(DialEventHandler handler);
+
+private:
+  struct Data;
+  std::unique_ptr<Data> m_data;
+};
+} // namespace phoned
