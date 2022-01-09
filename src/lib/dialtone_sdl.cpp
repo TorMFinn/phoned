@@ -35,7 +35,7 @@ struct Dialtone::Data {
         Data *data = reinterpret_cast<Data *>(userdata);
         Uint16 *stream_data = reinterpret_cast<Uint16 *>(stream);
         for (int i = 0; i < len / 2; i++) {
-            stream_data[i] = 30000 * sin(data->t * data->frequency);
+            stream_data[i] = 15000 * sin(data->t * data->frequency);
             data->t += data->step;
             if (data->t >= 2 * M_PI) {
                 data->t -= 2 * M_PI;

@@ -1,4 +1,5 @@
 option(PHONED_TESTING "Build phoned unit tests" OFF)
+option(PHONED_SYSTEM_SQLITECPP "Use system installed SQLiteCPP" OFF)
 
 # Enable testing if user has set option to true
 if (PHONED_TESTING)

@@ -4,3 +4,6 @@
 [submodule "ext/sdbus-cpp"]
 	path = ext/sdbus-cpp
 	url = https://github.com/Kistler-Group/sdbus-cpp
+[submodule "ext/sqlitecpp"]
+	path = ext/sqlitecpp
+	url = https://github.com/SRombauts/SQLiteCpp.git

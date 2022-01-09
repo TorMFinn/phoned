@@ -2,7 +2,8 @@ add_library(libphoned
   handset.cpp
   dial.cpp
   contacts.cpp
-  dialtone_sdl.cpp
+  dialtone.cpp
+  #dialtone_sdl.cpp
   ringer.cpp
   modem.cpp
   )
@@ -10,11 +11,13 @@ add_library(libphoned
 target_link_libraries(libphoned PRIVATE
   pthread
   SQLiteCpp
-  ${SDL2_LIBRARIES}
+  #${SDL2_LIBRARIES}
+  ${PULSEAUDIO_LIBRARIES}
   )
 
   target_include_directories(libphoned PRIVATE
-    ${SDL2_INCLUDE_DIRS}
+	  #${SDL2_INCLUDE_DIRS}
+	  ${PULSEAUDIO_INCLUDE_DIRS}
   )
 
 target_include_directories(libphoned PUBLIC

@@ -42,7 +42,6 @@ struct Dial::Data {
           do_counting = true;
         } else if (!enable_count_state && do_counting) {
           do_counting = false;
-          std::cout << "counted value: " << counted_digit << std::endl;
           update_number(counted_digit);
           time_since_last_digit = steady_clock::now();
           counted_digit = 0;
@@ -107,11 +106,10 @@ struct Dial::Data {
 
   void finish_number() {
     if (!number_buffer.empty()) {
-      std::cout << "number is: " << number_buffer << std::endl;
       NumberEnteredData data;
       data.number = number_buffer;
       if (dial_event_handler) {
-        dial_event_handler(DialEvent::DIGIT_ENTERED, std::move(&data));
+        dial_event_handler(DialEvent::NUMBER_ENTERED, std::move(&data));
       }
       number_buffer.clear();
     }
