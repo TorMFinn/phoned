@@ -1,7 +1,7 @@
 #include "phoned/dial.hpp"
 #include "phoned/dialtone.hpp"
 #include "phoned/handset.hpp"
-#include "phoned/modem.hpp"
+#include "phoned/simcom7500x.hpp"
 
 #include <chrono>
 #include <csignal>
@@ -76,6 +76,12 @@ int main(int argc, char **argv) {
     });
 
     dial.SetDialEventHandler(dial_handler);
+
+    ModemPtr modem = std::make_shared<SIMCOM7500X>();
+    if (!modem->Open("/dev/ttyUSB2", 115200)) {
+        std::cerr << "failed to open modem." << std::endl;
+        return EXIT_FAILURE;
+    }
 
     std::signal(SIGINT, sighandler);
     std::signal(SIGTERM, sighandler);

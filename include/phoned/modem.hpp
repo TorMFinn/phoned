@@ -21,21 +21,22 @@ namespace phoned {
 
     class Modem {
         public:
-        Modem(const std::string &serial_device, int baudrate);
-        ~Modem();
+        virtual bool Open(const std::string& serial_device, int baudrate) = 0;
+        virtual void Dial(const std::string &number) = 0;
+        virtual void Hangup() = 0;
+        virtual void AnswerCall() = 0;
 
-        void Dial(const std::string &number);
-        void Hangup();
-        void AnswerCall();
+        virtual bool CallInProgress() = 0;
+        virtual bool CallIncoming() = 0;
+        virtual bool HasDialtone() = 0;
 
-        bool CallInProgress();
-        bool CallIncoming();
-        bool HasDialtone();
+        void SetModemEventHandler(ModemEventHandler handler) {
+            m_event_handler = handler;
+        }
 
-        void SetModemEventHandler(ModemEventHandler handler);
-
-        private:
-        struct Data;
-        std::unique_ptr<Data> m_data;
+        protected:
+        ModemEventHandler m_event_handler;
     };
+
+    using ModemPtr = std::shared_ptr<Modem>;
 }

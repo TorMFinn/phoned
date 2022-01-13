@@ -5,7 +5,8 @@ add_library(libphoned
   dialtone.cpp
   #dialtone_sdl.cpp
   ringer.cpp
-  modem.cpp
+  #modem.cpp
+  simcom7500x.cpp
   )
 
 target_link_libraries(libphoned PRIVATE
