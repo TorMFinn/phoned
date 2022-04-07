@@ -1,0 +1,5 @@
+# This rule keeps modem manager from taking control over the AT ports
+
+ACTION!="add|change|move", GOTO="mm_whitelist_internal_modem_end"
+    ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="9001", ENV{ID_MM_PORT_TYPE_QCDM}="1"
+    LABEL="mm_whitelist_internal_modem_end"

@@ -1,0 +1,11 @@
+[Unit]
+Description=phoned ringer service
+After=phoned-modemd.service
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned-ringerd
+
+[Install]
+WantedBy=multi-user.target

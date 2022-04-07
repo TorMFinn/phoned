@@ -1,0 +1,10 @@
+[Unit]
+Description=phoned handset service
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned-handsetd
+
+[Install]
+WantedBy=multi-user.target

@@ -4,7 +4,7 @@ Description=phoned dial service
 [Service]
 Type=simple
 Restart=on-failure
-ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned_diald
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned-diald
 
 [Install]
 WantedBy=multi-user.target

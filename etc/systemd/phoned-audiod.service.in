@@ -1,10 +1,11 @@
 [Unit]
 Description=phoned audio service
+After=phoned-modemd.service phoned-handsetd.service
 
 [Service]
 Type=simple
 Restart=on-failure
-ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned_audiod
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/phoned-audiod
 
 [Install]
 WantedBy=multi-user.target

@@ -98,7 +98,7 @@ const sd_bus_vtable vtable[] = {
 };
 
 int main() {
-    phoned::modem modem("/dev/ttyUSB2", 921600);
+    phoned::modem modem("/dev/ttyS0", 115200);
     sd_bus *bus = nullptr;
     std::mutex bus_mutex;
     struct pollfd p;
