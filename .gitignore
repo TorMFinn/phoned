@@ -3,3 +3,5 @@ build
 .ccls-cache
 .git
 *~
+zig/zig-cache
+zig/zig-out
