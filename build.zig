@@ -26,7 +26,8 @@ pub fn build(b: *std.Build) void {
 
     // Add some link dependencies of C libraries
     exe.linkLibC();
-    exe.linkSystemLibrary("sdl2");
+    exe.linkSystemLibrary("libpulse-simple");
+    exe.addIncludePath(.{ .path = "/usr/include/" });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

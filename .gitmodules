@@ -1,9 +1,0 @@
-[submodule "ext/sanitizers-cmake"]
-	path = ext/sanitizers-cmake
-	url = git://github.com/arsenm/sanitizers-cmake.git
-[submodule "ext/sdbus-cpp"]
-	path = ext/sdbus-cpp
-	url = https://github.com/Kistler-Group/sdbus-cpp
-[submodule "ext/sqlitecpp"]
-	path = ext/sqlitecpp
-	url = https://github.com/SRombauts/SQLiteCpp.git
