@@ -1,32 +1,31 @@
 const std = @import("std");
 const log = std.log;
 
-//const audio = @import("audio.zig");
 const audio = @import("dialtone_pulse.zig");
+const handset = @import("handset.zig");
+
+var dialtone: audio.Dialtone = undefined;
+
+fn handset_state_handler(state: handset.Handset.State) void {
+    if (state == handset.Handset.State.lifted) {
+        std.debug.print("starting \n", .{});
+        dialtone.start() catch unreachable;
+    } else {
+        std.debug.print("stopping\n", .{});
+        dialtone.stop();
+    }
+}
 
 pub fn main() !void {
-    //var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var dialtone = try audio.Dialtone.init(.Norway);
+    dialtone = try audio.Dialtone.init(.Norway);
+    defer dialtone.stop();
 
-    dialtone.stop();
-    try dialtone.start();
-    std.time.sleep(std.time.ns_per_s * 2);
+    var handset_hw = try handset.Handset.init();
+    defer handset_hw.cleanup();
 
+    handset_hw.set_state_change_callback(&handset_state_handler);
 
-    std.debug.print("Stopped the dialtone\n", .{});
-    std.time.sleep(std.time.ns_per_s * 2);
-
-    try dialtone.start();
-    std.time.sleep(std.time.ns_per_s * 2);
-
-    //var handset = try hw.handset.Handset.init(gpa.allocator());
-    //defer handset.cleanup();
-
-    //var ringer = hw.Ringer.init(.{.device_path = "/dev/gpiochip0"}) catch |err| {
-    //log.err("failed to init ringer: {}", .{err});
-    //return;
-    //};
-    //defer ringer.deinit();
-
-    //try dialtone.start();
+    while (true) {
+        std.time.sleep(std.time.ns_per_s * 1);
+    }
 }
